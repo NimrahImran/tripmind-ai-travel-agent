@@ -4,6 +4,8 @@
 
 TripMind plans a trip the way a good travel agent would: it looks things up first, then writes the plan. Tell it where, when, how many people and your budget; it finds the place, checks the weather for your exact dates, converts your budget to the local currency, and streams a day-by-day plan with a route map, a budget chart and a travel kit. You can watch every step as it happens.
 
+**Live demo: [tripmind-travel-agent.vercel.app](https://tripmind-travel-agent.vercel.app)**
+
 Built by **Nimra Imran**, AI Engineer.
 
 ## Features
