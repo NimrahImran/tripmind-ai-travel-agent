@@ -19,7 +19,7 @@ Built by **Nimra Imran**, AI Engineer.
 - **Compare two places** with fit scores, costs and weather side by side
 - **Travel styles** (Backpacker, Family, Honeymoon, Luxury) and **English / Roman Urdu** replies
 - **Save trips** in the browser and **download a PDF**
-- **Contact form** that delivers enquiries by email (FormSubmit), with validation and spam protection
+- **Contact form** sent through the site's own `/api/contact` (so ad blockers can't stop it) and delivered by email via FormSubmit, with validation, spam protection and rate limiting
 - **Hero slider** of 10 destinations, a WebGL globe, fully responsive down to small phones
 - **Share card** (Open Graph) so links show a full preview on WhatsApp, LinkedIn and X
 
@@ -50,7 +50,7 @@ The model writes Markdown followed by a hidden JSON block (map pins and budget).
 |---|---|
 | Frontend | React 18, Vite, Leaflet, cobe (WebGL globe), react-markdown |
 | Backend | Vercel serverless functions (Node, Web `Request`/`Response`), JSDoc types checked by TypeScript |
-| Quality | Vitest (66 tests), GitHub Actions CI |
+| Quality | Vitest (72 tests), GitHub Actions CI |
 | AI | Google Gemini Flash (3.x) via streaming REST, automatic model fallback that follows Google's model replacements |
 | Data | Open-Meteo geocoding, forecast and archive APIs; open.er-api.com exchange rates; OpenStreetMap tiles with automatic fallback |
 
@@ -72,6 +72,7 @@ The model writes Markdown followed by a hidden JSON block (map pins and budget).
 api/
   plan.js            the agent endpoint (streams events)
   places.js          worldwide place suggestions
+  contact.js         Hire Me form delivery
   health.js          status check
   _lib/              gemini client, tools, prompts, validation, helpers
 src/
@@ -90,7 +91,7 @@ The backend is plain JavaScript with JSDoc types, checked by the TypeScript comp
 
 ```bash
 npm run typecheck   # TypeScript over api/
-npm test            # 66 tests
+npm test            # 72 tests
 npm run check       # all of the above plus a production build (what CI runs)
 ```
 

@@ -80,27 +80,23 @@ function ContactForm() {
 
     setState('sending');
     try {
-      const res = await fetch(site.contactEndpoint, {
+      // Sent through this site's own backend, so ad blockers can't stop it.
+      const res = await fetch('/api/contact', {
         method: 'POST',
-        headers: { 'content-type': 'application/json', accept: 'application/json' },
-        body: JSON.stringify({
-          name,
-          email,
-          message,
-          _subject: `New TripMind enquiry from ${name}`,
-          _template: 'table',
-          _replyto: email,
-        }),
-        signal: AbortSignal.timeout(15000),
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ name, email, message }),
+        signal: AbortSignal.timeout(20000),
       });
       const body = await res.json().catch(() => ({}));
-      if (!res.ok || String(body.success) === 'false') throw new Error(body.message || `HTTP ${res.status}`);
+      if (!res.ok || !body.ok) {
+        setFailReason(body.error || '');
+        setState('error');
+        return;
+      }
       setState('sent');
       form.reset();
-    } catch (err) {
-      const reason = String(err?.message || '');
-      // FormSubmit asks the owner to confirm each new website once by email.
-      setFailReason(/activat/i.test(reason) ? 'activation' : reason.slice(0, 160));
+    } catch {
+      setFailReason('');
       setState('error');
     }
   };
@@ -153,9 +149,7 @@ function ContactForm() {
       </button>
       {state === 'error' && (
         <p className="cf-fail" role="alert">
-          {failReason === 'activation'
-            ? 'The contact form is being switched on. Please try again in a little while.'
-            : `The message couldn’t be sent. Check your connection and try again.${failReason ? ` (${failReason})` : ''}`}
+          {failReason || 'The message couldn’t be sent. Check your internet connection and try again.'}
         </p>
       )}
     </form>

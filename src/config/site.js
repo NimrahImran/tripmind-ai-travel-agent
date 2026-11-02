@@ -10,10 +10,4 @@ export const site = {
     linkedin: '',
     github: '',
   },
-  /**
-   * Contact form delivery (free): https://formsubmit.co
-   * Uses the activated FormSubmit alias, so no email address appears in the
-   * site or its source code. Messages arrive in the owner's inbox.
-   */
-  contactEndpoint: 'https://formsubmit.co/ajax/a9b8967beaa15198a66de157fe886353',
 };
