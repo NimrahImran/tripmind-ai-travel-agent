@@ -98,6 +98,13 @@ function ContactForm() {
         });
         const fsBody = await fs.json().catch(() => ({}));
         if (!fs.ok || String(fsBody.success) === 'false') {
+          // Tell the backend what FormSubmit said, so the reason shows in the logs.
+          fetch('/api/contact', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ report: String(fsBody.message || `HTTP ${fs.status}`), name, email, message }),
+            keepalive: true,
+          }).catch(() => {});
           setFailReason(
             /activat/i.test(String(fsBody.message))
               ? 'The contact form is being switched on. Please try again in a little while.'

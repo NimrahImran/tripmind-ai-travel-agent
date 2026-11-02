@@ -18,7 +18,7 @@ const STACK = [
   ['AI model', 'Google Gemini Flash, streaming with automatic model fallback'],
   ['Live data', 'Open-Meteo weather and geocoding, exchange rates'],
   ['Safety', 'Key stays on the server, only this site may call the agent, input validation, rate limiting'],
-  ['Quality', '72 automated tests, type-checked backend, checks run on every update'],
+  ['Quality', '74 automated tests, type-checked backend, checks run on every update'],
 ];
 
 export default function UnderTheHood() {

@@ -1,11 +1,11 @@
 // @ts-check
 // POST /api/contact — delivers the Hire Me form to the owner's inbox.
 //
-// With RESEND_API_KEY and CONTACT_TO_EMAIL set (Vercel → Environment
-// Variables), the message is emailed by Resend from this server: reliable,
-// and never blocked by ad blockers. Without them, the browser is told to use
-// the FormSubmit fallback instead. If delivery fails, the message is kept in
-// the server logs so it is never lost.
+// Default: every message is saved in the Vercel logs, then the browser
+// delivers it to the inbox through FormSubmit (free, no account; the owner
+// clicks "Activate" once in the first email FormSubmit sends).
+// Optional: with RESEND_API_KEY and CONTACT_TO_EMAIL set, the server emails it
+// with Resend instead.
 
 import { allowRequest, clientIp, isSameOrigin, json, log, newRequestId } from './_lib/http.js';
 
@@ -41,6 +41,20 @@ export async function POST(request) {
   // Hidden field only bots fill in: pretend success, send nothing.
   if (body._honey) return json({ ok: true }, 200, requestId);
 
+  // The browser reports what FormSubmit answered when it refused a message,
+  // so the reason is visible in the logs (and the message is kept there too).
+  if (typeof body.report === 'string') {
+    log('warn', {
+      requestId,
+      event: 'formsubmit_refused',
+      note: clean(body.report, 300),
+      name: clean(body.name, 80),
+      email: clean(body.email, 120),
+      message: clean(body.message, 3000),
+    });
+    return json({ ok: true }, 200, requestId);
+  }
+
   const name = clean(body.name, 80);
   const email = clean(body.email, 120);
   const message = clean(body.message, 3000);
@@ -51,7 +65,10 @@ export async function POST(request) {
   const key = process.env.RESEND_API_KEY;
   const to = process.env.CONTACT_TO_EMAIL;
   if (!key || !to) {
-    // Not set up yet: the browser sends it through FormSubmit instead.
+    // Every message is also kept in the Vercel logs (Logs → search
+    // "contact_received"), so none is ever lost. The browser then delivers
+    // it to the inbox through FormSubmit.
+    log('info', { requestId, event: 'contact_received', name, email, message });
     return json({ ok: false, useBrowser: true }, 200, requestId);
   }
 

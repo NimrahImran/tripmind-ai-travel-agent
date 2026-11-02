@@ -77,3 +77,18 @@ describe('POST /api/contact', () => {
     expect(last.status).toBe(429);
   });
 });
+
+describe('POST /api/contact without Resend', () => {
+  it('hands delivery to the browser without calling any email service', async () => {
+    delete process.env.RESEND_API_KEY;
+    const fake = vi.fn();
+    vi.stubGlobal('fetch', fake);
+    expect(await (await send(good)).json()).toEqual({ ok: false, useBrowser: true });
+    expect(fake).not.toHaveBeenCalled();
+  });
+
+  it('accepts a FormSubmit refusal report', async () => {
+    const res = await send({ report: 'This form needs Activation', ...good });
+    expect(await res.json()).toEqual({ ok: true });
+  });
+});

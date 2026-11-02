@@ -19,7 +19,7 @@ Built by **Nimra Imran**, AI Engineer.
 - **Compare two places** with fit scores, costs and weather side by side
 - **Travel styles** (Backpacker, Family, Honeymoon, Luxury) and **English / Roman Urdu** replies
 - **Save trips** in the browser and **download a PDF**
-- **Contact form** sent through the site's own `/api/contact` and emailed by Resend (with FormSubmit as a backup), with validation, spam protection, rate limiting, and no message ever lost
+- **Contact form** sent through the site's own `/api/contact` and delivered by email through FormSubmit (Resend optional), every message also saved in the logs, with validation, spam protection, rate limiting, and no message ever lost
 - **Hero slider** of 10 destinations, a WebGL globe, fully responsive down to small phones
 - **Share card** (Open Graph) so links show a full preview on WhatsApp, LinkedIn and X
 
@@ -50,7 +50,7 @@ The model writes Markdown followed by a hidden JSON block (map pins and budget).
 |---|---|
 | Frontend | React 18, Vite, Leaflet, cobe (WebGL globe), react-markdown |
 | Backend | Vercel serverless functions (Node, Web `Request`/`Response`), JSDoc types checked by TypeScript |
-| Quality | Vitest (72 tests), GitHub Actions CI |
+| Quality | Vitest (74 tests), GitHub Actions CI |
 | AI | Google Gemini Flash (3.x) via streaming REST, automatic model fallback that follows Google's model replacements |
 | Data | Open-Meteo geocoding, forecast and archive APIs; open.er-api.com exchange rates; OpenStreetMap tiles with automatic fallback |
 
@@ -91,7 +91,7 @@ The backend is plain JavaScript with JSDoc types, checked by the TypeScript comp
 
 ```bash
 npm run typecheck   # TypeScript over api/
-npm test            # 72 tests
+npm test            # 74 tests
 npm run check       # all of the above plus a production build (what CI runs)
 ```
 
@@ -120,7 +120,7 @@ See the agent's event stream in the terminal, no key needed: `npm run demo:api`.
 2. Get a free key at [Google AI Studio](https://aistudio.google.com/apikey).
 3. In Vercel, open **Settings → Environment Variables**, add `GEMINI_API_KEY` with your key, and save.
 4. Redeploy. Visit `/api/health` to confirm `"aiConfigured": true`.
-5. Contact form: create a free [Resend](https://resend.com) account, make an API key, and add `RESEND_API_KEY` plus `CONTACT_TO_EMAIL` (the email you signed up with) the same way.
+5. Contact form: works with no extra setup through FormSubmit. Send yourself one test message, then click **Activate** in the email FormSubmit sends (once per website). Every message is also kept in Vercel → Logs (search `contact_received`). Optional: add `RESEND_API_KEY` and `CONTACT_TO_EMAIL` to send through [Resend](https://resend.com) instead.
 
 ## Credits
 
