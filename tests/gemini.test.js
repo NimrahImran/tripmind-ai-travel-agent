@@ -87,6 +87,21 @@ describe('streamGemini', () => {
     expect(calls[1]).toContain('/models/new-model-9:');
   });
 
+  it('asks Gemini 3 to keep thinking short, and drops the setting if a model rejects it', async () => {
+    const bodies = [];
+    const fake = vi.fn(async (_url, init) => {
+      const body = JSON.parse(init.body);
+      bodies.push(body.generationConfig.thinkingConfig);
+      return body.generationConfig.thinkingConfig
+        ? jsonRes(400, { error: { message: 'Thinking level is not supported for this model.' } })
+        : geminiSse('Plain thinking worked');
+    });
+    vi.stubGlobal('fetch', fake);
+    expect((await run()).full).toBe('Plain thinking worked');
+    expect(bodies[0]).toEqual({ thinkingLevel: 'low' });
+    expect(bodies[1]).toBeUndefined();
+  });
+
   it('tries the next model when one is overloaded (503)', async () => {
     installFetch({
       gemini: (model) => (model === 'gemini-3.8-flash' ? jsonRes(503, { error: { message: 'The model is overloaded.' } }) : geminiSse('Lite answered')),

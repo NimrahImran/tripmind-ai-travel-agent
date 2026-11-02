@@ -3,6 +3,8 @@
 // (rendered by the UI), a fixed section order, and no stray symbols.
 
 export const DATA_MARKER = '<<<TRIPDATA>>>';
+/** Sent instead of an answer when a follow-up asks about a different destination. */
+export const NEW_TRIP_MARKER = '<<<NEW_TRIP>>>';
 
 const STYLE_GUIDE = {
   backpacker: 'Backpacker: hostels and guesthouses, street food, public transport, free sights first.',
@@ -124,6 +126,8 @@ export function chatPrompt(chat) {
     .join('\n');
   return `FOLLOW-UP REQUEST about an existing trip plan.
 
+CURRENT DESTINATION: ${chat.destination || 'see the plan below'}
+
 CURRENT PLAN
 ${chat.plan.slice(0, 12000)}
 
@@ -133,7 +137,10 @@ ${chat.message}
 
 LANGUAGE: ${LANGUAGE[chat.lang] || LANGUAGE.en}
 
-Answer in one short opening sentence, then show ONLY the parts of the plan that change (use the same "### Day N: title" style). Do not repeat unchanged days. If the request is a question, just answer it clearly.
+DIFFERENT DESTINATION: if the traveller asks to plan, switch to or go to a place that is not the destination of the current plan (for example "what about Maldives?", "plan Dubai instead", "Maldives ka plan batao"), do not answer it. Reply with ONLY this single line and nothing else:
+${NEW_TRIP_MARKER}{"destination":"<place, country>","days":<number of days if they said one, otherwise null>}
+
+Otherwise: answer in one short opening sentence, then show ONLY the parts of the plan that change (use the same "### Day N: title" style). Do not repeat unchanged days. If the request is a question, just answer it clearly.
 If the places or budget changed, finish with a line containing exactly ${DATA_MARKER} and ONE line of minified JSON describing the FULL updated trip in the same schema as the original plan (currency, total_estimate, budget, days with places). Otherwise do not output the marker.`;
 }
 
@@ -183,4 +190,30 @@ export function cleanTripData(d) {
     }));
   }
   return out;
+}
+
+/**
+ * Reads the "different destination" signal from a follow-up reply.
+ * @param {string} text
+ * @returns {{ destination: string, days: number | null } | null}
+ */
+export function parseNewTrip(text) {
+  const t = text.trimStart();
+  if (!t.startsWith(NEW_TRIP_MARKER)) return null;
+  const raw = t.slice(NEW_TRIP_MARKER.length);
+  const start = raw.indexOf('{');
+  const end = raw.indexOf('}', start);
+  let data = {};
+  try {
+    if (start >= 0 && end > start) data = JSON.parse(raw.slice(start, end + 1));
+  } catch {
+    data = {};
+  }
+  const destination = String(data.destination || raw.replace(/[{}"]/g, ' ').split('\n')[0])
+    .replace(/[\u0000-\u001f<>]/g, ' ')
+    .trim()
+    .slice(0, 80);
+  if (destination.length < 2) return null;
+  const n = Math.round(Number(data.days));
+  return { destination, days: Number.isFinite(n) && n >= 1 && n <= 14 ? n : null };
 }

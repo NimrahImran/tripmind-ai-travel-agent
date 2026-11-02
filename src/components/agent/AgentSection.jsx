@@ -19,7 +19,15 @@ const preloadResultParts = () => {
 };
 
 const PlanText = (props) => (
-  <Suspense fallback={<div className="md">{props.text}</div>}>
+  <Suspense
+    fallback={
+      <div className="skeleton" aria-label="Preparing your plan">
+        <span />
+        <span />
+        <span />
+      </div>
+    }
+  >
     <LazyPlanText {...props} />
   </Suspense>
 );
@@ -153,13 +161,14 @@ export default function AgentSection({ prefill }) {
     runStream(request, newRun(mode, request, meta), setRun, ctrl.signal);
   }, []);
 
-  const submitPlan = () => {
-    const t = { ...trip, budget: Number(trip.budget) || 0 };
+  const planTrip = (source, replyLang = lang) => {
+    const { lang: _ignored, ...rest } = source;
+    const t = { ...rest, budget: Number(rest.budget) || 0 };
     if (!t.destination.trim() || t.budget <= 0) return;
     const styleLabel = STYLES.find(([v]) => v === t.style)?.[1];
     start(
       'plan',
-      { mode: 'plan', trip: { ...t, lang } },
+      { mode: 'plan', trip: { ...t, lang: replyLang } },
       {
         title: t.destination,
         chips: [`${t.days} day${t.days > 1 ? 's' : ''}`, `${t.travelers} traveller${t.travelers > 1 ? 's' : ''}`, `${t.currency} ${t.budget.toLocaleString('en-US')}`, styleLabel],
@@ -167,6 +176,7 @@ export default function AgentSection({ prefill }) {
       },
     );
   };
+  const submitPlan = () => planTrip(trip);
 
   const submitCompare = () => {
     const c = { ...cmp, budget: Number(cmp.budget) || 0 };
@@ -203,11 +213,20 @@ export default function AgentSection({ prefill }) {
       { role: 'assistant', content: m.text },
     ]);
     const id = `${Date.now()}`;
-    const body = { mode: 'chat', chat: { message, plan: run.text, history, lang } };
+    const baseTrip = run.request?.trip || trip;
+    const body = { mode: 'chat', chat: { message, plan: run.text, history, destination: baseTrip.destination, lang } };
     const initial = { ...newRun('chat', body, {}), id, question: message };
     const setItem = (item) =>
       setThread((list) => (list.some((m) => m.id === id) ? list.map((m) => (m.id === id ? item : m)) : [...list, item]));
     runStream(body, initial, setItem, ctrl.signal).then((final) => {
+      // Asked about another place: run the full agent for it (weather, map, budget).
+      if (final?.newTrip?.destination) {
+        const next = { ...baseTrip, destination: final.newTrip.destination, days: final.newTrip.days || baseTrip.days };
+        const { lang: _l, ...formFields } = next;
+        setTrip((t) => ({ ...t, ...formFields }));
+        planTrip(next, lang);
+        return;
+      }
       if (final?.data?.days?.length || final?.data?.budget?.length) {
         setRun((r) => ({ ...r, data: { ...r.data, ...final.data } }));
       }
@@ -511,7 +530,7 @@ function FollowUp({ onSend, busy }) {
   };
   return (
     <div className="follow no-print">
-      <p className="follow-title">Want changes? Ask TripMind.</p>
+      <p className="follow-title">Want changes, or another place? Ask TripMind.</p>
       <div className="follow-chips">
         {FOLLOW_UPS.map((f) => (
           <button key={f} className="example" onClick={() => send(f)} disabled={busy}>
@@ -532,7 +551,7 @@ function FollowUp({ onSend, busy }) {
         <input
           id="follow-input"
           maxLength={600}
-          placeholder="e.g. Swap day 3 for a lake day"
+          placeholder="e.g. Swap day 3 for a lake day, or: what about Maldives?"
           value={msg}
           onChange={(e) => setMsg(e.target.value)}
         />

@@ -96,3 +96,17 @@ describe('prompts', () => {
     expect(p).not.toContain('msg 5');
   });
 });
+
+describe('parseNewTrip', () => {
+  it('reads the destination and optional days', async () => {
+    const { parseNewTrip, NEW_TRIP_MARKER } = await import('../api/_lib/prompts.js');
+    expect(parseNewTrip(`${NEW_TRIP_MARKER}{"destination":"Maldives","days":4}`)).toEqual({ destination: 'Maldives', days: 4 });
+    expect(parseNewTrip(` ${NEW_TRIP_MARKER}{"destination":"Dubai, UAE","days":null}`)).toEqual({ destination: 'Dubai, UAE', days: null });
+    expect(parseNewTrip(`${NEW_TRIP_MARKER}{"destination":"Bali","days":40}`).days).toBeNull();
+  });
+
+  it('ignores normal answers', async () => {
+    const { parseNewTrip } = await import('../api/_lib/prompts.js');
+    expect(parseNewTrip('Sure, here is a cheaper Day 2.')).toBeNull();
+  });
+});

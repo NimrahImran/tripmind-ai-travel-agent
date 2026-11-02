@@ -87,6 +87,19 @@ describe('POST /api/plan', () => {
     expect(events.some((e) => e.id === 'map')).toBe(false);
   });
 
+  it('turns a follow-up about another place into a new-trip signal, never shown as text', async () => {
+    for (const chunk of [1, 4, 9, 50]) {
+      installFetch({ gemini: () => geminiSse('<<<NEW_TRIP>>>{"destination":"Maldives","days":4}', { chunk }) });
+      const events = await readEvents(
+        await POST(planRequest({ mode: 'chat', chat: { message: 'what about Maldives?', destination: 'Dubai', plan: '## Trip snapshot\nDubai plan text' } })),
+      );
+      expect(visibleText(events), `chunk ${chunk}`).toBe('');
+      expect(events.find((e) => e.key === 'newTrip').value).toEqual({ destination: 'Maldives', days: 4 });
+      expect(events.at(-1).type).toBe('done');
+      resetLimiter();
+    }
+  });
+
   it('refuses requests from other websites', async () => {
     const res = await POST(planRequest(plan, { origin: 'https://someone-else.example' }));
     expect(res.status).toBe(403);

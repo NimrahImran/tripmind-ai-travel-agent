@@ -10,10 +10,12 @@ import { AgentError, streamGemini } from './_lib/gemini.js';
 import { allowRequest, clientIp, createEventStream, isSameOrigin, json, log, newRequestId, step } from './_lib/http.js';
 import {
   DATA_MARKER,
+  NEW_TRIP_MARKER,
   SYSTEM_PROMPT,
   chatPrompt,
   cleanTripData,
   comparePrompt,
+  parseNewTrip,
   planPrompt,
   splitData,
 } from './_lib/prompts.js';
@@ -179,7 +181,17 @@ async function runChat(chat, send) {
     system: SYSTEM_PROMPT,
     prompt: chatPrompt(chat),
     maxTokens: 3500,
+    gate: NEW_TRIP_MARKER,
   });
+
+  // A different destination: tell the browser to run the full agent for it
+  // (location, weather, budget, map), keeping the rest of the trip details.
+  const newTrip = parseNewTrip(full);
+  if (newTrip) {
+    send({ type: 'step', id: 'switch', label: `Switching to ${newTrip.destination}`, status: 'done', ms: 0 });
+    send({ type: 'data', key: 'newTrip', value: newTrip });
+    return;
+  }
   await finishData(send, full, { optional: true });
 }
 
@@ -190,10 +202,16 @@ async function runChat(chat, send) {
 async function writeWithModel(send, id, label, opts) {
   const t0 = Date.now();
   send({ type: 'step', id, label, status: 'running' });
+  const { gate, ...modelOpts } = opts;
   let full = '';
   let sent = 0;
   let firstAt = 0;
   const flush = (final) => {
+    // A reply that starts with the gate marker is a signal, never shown.
+    if (gate) {
+      const t = full.trimStart();
+      if (t.startsWith(gate) || (!final && gate.startsWith(t))) return;
+    }
     const cut = full.indexOf(DATA_MARKER);
     // Without the marker yet, keep a tail back in case it is arriving split.
     const visibleEnd = cut >= 0 ? cut : final ? full.length : Math.max(sent, full.length - DATA_MARKER.length);
@@ -203,7 +221,7 @@ async function writeWithModel(send, id, label, opts) {
     }
   };
   await streamGemini({
-    ...opts,
+    ...modelOpts,
     onText: (delta) => {
       if (!firstAt) firstAt = Date.now();
       full += delta;

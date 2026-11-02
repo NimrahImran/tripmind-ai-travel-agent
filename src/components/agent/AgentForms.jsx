@@ -1,5 +1,5 @@
-import { destinations } from '../../data/destinations.js';
 import { Sparkle, Swap } from '../Icons.jsx';
+import PlaceInput from './PlaceInput.jsx';
 
 export const CURRENCIES = ['PKR', 'USD', 'EUR', 'GBP', 'AED', 'SAR', 'INR', 'CAD', 'AUD', 'TRY', 'MYR'];
 export const STYLES = [
@@ -122,27 +122,18 @@ export function TripForm({ trip, setTrip, onSubmit, busy, destRef, lang, setLang
     >
       <div className="field field-wide">
         <label htmlFor="f-dest">Where to?</label>
-        <input
+        <PlaceInput
           id="f-dest"
           ref={destRef}
-          list="dest-list"
           required
-          minLength={2}
-          maxLength={80}
-          autoComplete="off"
-          placeholder="City, region or country"
+          placeholder="Start typing a city or country, e.g. Dubai"
           value={trip.destination}
-          onChange={(e) => set('destination')(e.target.value)}
+          onChange={set('destination')}
         />
-        <datalist id="dest-list">
-          {destinations.map((d) => (
-            <option key={d.id} value={`${d.name}, ${d.country}`} />
-          ))}
-        </datalist>
       </div>
       <div className="field">
         <label htmlFor="f-from">From</label>
-        <input id="f-from" maxLength={80} placeholder="Karachi" value={trip.origin} onChange={(e) => set('origin')(e.target.value)} />
+        <PlaceInput id="f-from" placeholder="Karachi" value={trip.origin} onChange={set('origin')} />
       </div>
       <div className="field">
         <label htmlFor="f-date">Start date</label>
@@ -203,14 +194,14 @@ export function CompareForm({ cmp, setCmp, onSubmit, busy, lang, setLang }) {
       <div className="compare-pair field-wide">
         <div className="field">
           <label htmlFor="c-a">First place</label>
-          <input id="c-a" required minLength={2} maxLength={60} list="dest-list" placeholder="Hunza" value={cmp.a} onChange={(e) => set('a')(e.target.value)} />
+          <PlaceInput id="c-a" required maxLength={60} placeholder="Hunza" value={cmp.a} onChange={set('a')} />
         </div>
         <button type="button" className="swap" aria-label="Swap places" onClick={() => setCmp((c) => ({ ...c, a: c.b, b: c.a }))}>
           <Swap width="18" />
         </button>
         <div className="field">
           <label htmlFor="c-b">Second place</label>
-          <input id="c-b" required minLength={2} maxLength={60} list="dest-list" placeholder="Skardu" value={cmp.b} onChange={(e) => set('b')(e.target.value)} />
+          <PlaceInput id="c-b" required maxLength={60} placeholder="Skardu" value={cmp.b} onChange={set('b')} />
         </div>
       </div>
       <div className="field">

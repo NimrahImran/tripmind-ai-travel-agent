@@ -22,11 +22,7 @@ export default function TripMap({ place, trip }) {
       dragging: !L.Browser.mobile,
       tap: false,
     }).setView([20, 10], 2);
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-      maxZoom: 18,
-      subdomains: 'abcd',
-      attribution: '&copy; OpenStreetMap &copy; CARTO',
-    }).addTo(map.current);
+    addTiles(map.current);
     layer.current = L.layerGroup().addTo(map.current);
     const ro = new ResizeObserver(() => map.current?.invalidateSize());
     ro.observe(el.current);
@@ -98,6 +94,44 @@ export default function TripMap({ place, trip }) {
       )}
     </section>
   );
+}
+
+/**
+ * Free map tiles, no key needed. If a provider refuses tiles (for example
+ * it asks for an API key), the map quietly switches to the next one.
+ */
+const TILE_PROVIDERS = [
+  {
+    url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+    options: { maxZoom: 19, attribution: '&copy; OpenStreetMap contributors' },
+  },
+  {
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
+    options: { maxZoom: 19, attribution: 'Tiles &copy; Esri' },
+  },
+  {
+    url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+    options: { maxZoom: 19, subdomains: 'abcd', attribution: '&copy; OpenStreetMap &copy; CARTO' },
+  },
+];
+
+function addTiles(map, index = 0) {
+  const provider = TILE_PROVIDERS[index];
+  if (!provider) return;
+  const layer = L.tileLayer(provider.url, { ...provider.options, crossOrigin: true });
+  let errors = 0;
+  let loaded = 0;
+  layer.on('tileload', () => {
+    loaded += 1;
+  });
+  layer.on('tileerror', () => {
+    errors += 1;
+    if (errors >= 3 && loaded === 0) {
+      map.removeLayer(layer);
+      addTiles(map, index + 1);
+    }
+  });
+  layer.addTo(map);
 }
 
 function escapeHtml(s) {

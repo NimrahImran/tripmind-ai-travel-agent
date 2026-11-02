@@ -74,12 +74,19 @@ export async function streamGemini({ system, prompt, temperature = 0.7, maxToken
   };
 
   const queue = models();
-  for (let i = 0; i < queue.length && i < 6; i++) {
+  /** Models that rejected our thinking setting; they are retried without it. */
+  const plainThinking = new Set();
+  for (let i = 0; i < queue.length && i < 7; i++) {
     const model = queue[i];
     if (Date.now() > deadline - 5000) break;
+    /** @type {Record<string, unknown>} */
     const generationConfig = { temperature, maxOutputTokens: maxTokens };
-    // Thinking adds seconds of silence; this agent already gets its facts from tools.
-    if (model.startsWith('gemini-2.5')) generationConfig.thinkingConfig = { thinkingBudget: 0 };
+    // Long "thinking" means seconds of silence before the first word. The agent
+    // already gets its facts from tools, so keep thinking short.
+    if (!plainThinking.has(model)) {
+      if (model.startsWith('gemini-2.5')) generationConfig.thinkingConfig = { thinkingBudget: 0 };
+      else if (/^gemini-(3|flash|pro)/.test(model)) generationConfig.thinkingConfig = { thinkingLevel: 'low' };
+    }
 
     // Abort if Google hasn't started answering in time, or goes quiet
     // mid-answer for too long, so the next model can try.
@@ -147,6 +154,12 @@ export async function streamGemini({ system, prompt, temperature = 0.7, maxToken
           retryAfter: Math.min(Math.max(parseInt(retry, 10) || 20, 5), 60),
         }),
       );
+      continue;
+    }
+    if (res.status === 400 && /thinking/i.test(msg) && !plainThinking.has(model)) {
+      // This model doesn't accept the thinking setting: same model, default thinking.
+      plainThinking.add(model);
+      queue.splice(i + 1, 0, model);
       continue;
     }
     if (res.status === 400 && /api key/i.test(msg)) {
@@ -224,7 +237,15 @@ async function readSse(res, onText, onActivity) {
 async function mockStream(prompt, onText) {
   const isCompare = prompt.includes('COMPARE MODE');
   const isChat = prompt.includes('FOLLOW-UP REQUEST');
-  const text = isCompare ? MOCK_COMPARE : isChat ? MOCK_CHAT : MOCK_PLAN;
+  const request = prompt.split("TRAVELLER'S REQUEST")[1] || '';
+  const newPlace = isChat && /maldives|dubai/i.exec(request)?.[0];
+  const text = newPlace
+    ? `<<<NEW_TRIP>>>{"destination":"${newPlace}","days":null}`
+    : isCompare
+      ? MOCK_COMPARE
+      : isChat
+        ? MOCK_CHAT
+        : MOCK_PLAN;
   let full = '';
   const tokens = text.match(/[\s\S]{1,14}/g) || [];
   for (const t of tokens) {

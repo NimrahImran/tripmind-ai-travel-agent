@@ -63,5 +63,5 @@ export function validateRequest(body) {
   const history = (Array.isArray(c.history) ? c.history : [])
     .slice(-4)
     .map((m) => ({ role: m.role === 'user' ? 'user' : 'assistant', content: String(m.content ?? '').slice(0, 2000) }));
-  return { mode, chat: { message, plan, history, lang: c.lang === 'ur' ? 'ur' : 'en' } };
+  return { mode, chat: { message, plan, history, destination: text(c.destination, 80), lang: c.lang === 'ur' ? 'ur' : 'en' } };
 }

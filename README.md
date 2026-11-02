@@ -14,7 +14,8 @@ Built by **Nimra Imran**, AI Engineer.
 - **Streaming with a live steps panel**: "Checking the weather… ✓" with timings, then the plan types out word by word
 - **Clean output**: real Markdown rendered as headings, lists and tables, in a fixed section order, with no stray symbols
 - **Route map** with numbered stops per day (Leaflet + CARTO), **weather strip**, **budget donut** with an over/under-budget check
-- **Follow-up edits**: "Make day 2 cheaper" updates only the parts that change, plus the map and budget
+- **Follow-up edits**: "Make day 2 cheaper" updates only the parts that change, plus the map and budget; asking about another place ("what about Maldives?") runs the full agent for it
+- **Worldwide place search** while typing: popular places on the first letter, then every city and region via `/api/places`
 - **Compare two places** with fit scores, costs and weather side by side
 - **Travel styles** (Backpacker, Family, Honeymoon, Luxury) and **English / Roman Urdu** replies
 - **Save trips** in the browser and **download a PDF**
@@ -49,9 +50,9 @@ The model writes Markdown followed by a hidden JSON block (map pins and budget).
 |---|---|
 | Frontend | React 18, Vite, Leaflet, cobe (WebGL globe), react-markdown |
 | Backend | Vercel serverless functions (Node, Web `Request`/`Response`), JSDoc types checked by TypeScript |
-| Quality | Vitest (59 tests), GitHub Actions CI |
+| Quality | Vitest (66 tests), GitHub Actions CI |
 | AI | Google Gemini Flash (3.x) via streaming REST, automatic model fallback that follows Google's model replacements |
-| Data | Open-Meteo geocoding, forecast and archive APIs; open.er-api.com exchange rates |
+| Data | Open-Meteo geocoding, forecast and archive APIs; open.er-api.com exchange rates; OpenStreetMap tiles with automatic fallback |
 
 ### Reliability and safety
 
@@ -70,6 +71,7 @@ The model writes Markdown followed by a hidden JSON block (map pins and budget).
 ```
 api/
   plan.js            the agent endpoint (streams events)
+  places.js          worldwide place suggestions
   health.js          status check
   _lib/              gemini client, tools, prompts, validation, helpers
 src/
@@ -88,7 +90,7 @@ The backend is plain JavaScript with JSDoc types, checked by the TypeScript comp
 
 ```bash
 npm run typecheck   # TypeScript over api/
-npm test            # 59 tests
+npm test            # 66 tests
 npm run check       # all of the above plus a production build (what CI runs)
 ```
 
