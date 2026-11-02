@@ -57,6 +57,7 @@ export default function HireMe() {
 function ContactForm() {
   const [state, setState] = useState('idle'); // idle | sending | sent | error
   const [errors, setErrors] = useState({});
+  const [failReason, setFailReason] = useState('');
 
   const onSubmit = async (e) => {
     e.preventDefault();
@@ -93,10 +94,13 @@ function ContactForm() {
         signal: AbortSignal.timeout(15000),
       });
       const body = await res.json().catch(() => ({}));
-      if (!res.ok || String(body.success) === 'false') throw new Error(body.message || res.status);
+      if (!res.ok || String(body.success) === 'false') throw new Error(body.message || `HTTP ${res.status}`);
       setState('sent');
       form.reset();
-    } catch {
+    } catch (err) {
+      const reason = String(err?.message || '');
+      // FormSubmit asks the owner to confirm each new website once by email.
+      setFailReason(/activat/i.test(reason) ? 'activation' : reason.slice(0, 160));
       setState('error');
     }
   };
@@ -149,7 +153,9 @@ function ContactForm() {
       </button>
       {state === 'error' && (
         <p className="cf-fail" role="alert">
-          The message couldn’t be sent. Check your connection and try again{site.links.github ? ', or reach me on GitHub' : ''}.
+          {failReason === 'activation'
+            ? 'The contact form is being switched on. Please try again in a little while.'
+            : `The message couldn’t be sent. Check your connection and try again.${failReason ? ` (${failReason})` : ''}`}
         </p>
       )}
     </form>
