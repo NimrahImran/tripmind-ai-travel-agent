@@ -1,16 +1,17 @@
 // @ts-check
 // POST /api/contact — delivers the Hire Me form to the owner's inbox.
 //
-// The browser posts here (same site, never blocked by ad blockers); this
-// function forwards it to FormSubmit, which emails it. The FormSubmit form id
-// is an alias, so the owner's email address appears nowhere in the code.
+// With RESEND_API_KEY and CONTACT_TO_EMAIL set (Vercel → Environment
+// Variables), the message is emailed by Resend from this server: reliable,
+// and never blocked by ad blockers. Without them, the browser is told to use
+// the FormSubmit fallback instead. If delivery fails, the message is kept in
+// the server logs so it is never lost.
 
 import { allowRequest, clientIp, isSameOrigin, json, log, newRequestId } from './_lib/http.js';
 
-const FORM_ID = () => process.env.CONTACT_FORM_ID || 'a9b8967beaa15198a66de157fe886353';
-const SITE = () => (process.env.SITE_URL || 'https://tripmind-travel-agent.vercel.app').replace(/\/$/, '');
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const clean = (v, max) => String(v ?? '').replace(/[\u0000-\u0008\u000b-\u001f<>]/g, ' ').trim().slice(0, max);
+const escapeHtml = (s) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] || c);
 
 /**
  * @param {Request} request
@@ -47,60 +48,38 @@ export async function POST(request) {
     return json({ ok: false, error: 'Please fill in your name, a valid email and a short message.' }, 400, requestId);
   }
 
+  const key = process.env.RESEND_API_KEY;
+  const to = process.env.CONTACT_TO_EMAIL;
+  if (!key || !to) {
+    // Not set up yet: the browser sends it through FormSubmit instead.
+    return json({ ok: false, useBrowser: true }, 200, requestId);
+  }
+
   try {
-    const res = await fetch(`https://formsubmit.co/ajax/${FORM_ID()}`, {
+    const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        accept: 'application/json',
-        // FormSubmit checks which website a form belongs to.
-        origin: SITE(),
-        referer: `${SITE()}/`,
-      },
+      headers: { authorization: `Bearer ${key}`, 'content-type': 'application/json' },
       body: JSON.stringify({
-        name,
-        email,
-        message,
-        _subject: `New TripMind enquiry from ${name}`,
-        _template: 'table',
-        _replyto: email,
-        _captcha: 'false',
+        from: process.env.CONTACT_FROM_EMAIL || 'TripMind <onboarding@resend.dev>',
+        to: to.split(',').map((s) => s.trim()).filter(Boolean),
+        reply_to: email,
+        subject: `New TripMind enquiry from ${name}`,
+        text: `Name: ${name}\nEmail: ${email}\n\n${message}`,
+        html: `<p><strong>Name:</strong> ${escapeHtml(name)}<br><strong>Email:</strong> ${escapeHtml(email)}</p><p>${escapeHtml(message).replace(/\n/g, '<br>')}</p><p style="color:#888">Sent from the TripMind contact form. Reply to this email to answer ${escapeHtml(name)}.</p>`,
       }),
       signal: AbortSignal.timeout(15_000),
     });
-    const text = await res.text();
-    /** @type {any} */
-    let data = {};
-    try {
-      data = JSON.parse(text);
-    } catch {
-      data = { message: text.slice(0, 200) };
+    if (res.ok) {
+      log('info', { requestId, event: 'contact', delivered: true, via: 'resend' });
+      return json({ ok: true }, 200, requestId);
     }
-    const delivered = res.ok && String(data.success) !== 'false';
-    log(delivered ? 'info' : 'warn', {
-      requestId,
-      event: 'contact',
-      status: res.status,
-      delivered,
-      note: String(data.message || '').slice(0, 200),
-    });
-    if (delivered) return json({ ok: true }, 200, requestId);
-    const activation = /activat/i.test(String(data.message || ''));
-    return json(
-      {
-        ok: false,
-        activation,
-        error: activation
-          ? 'The contact form is being switched on. Please try again in a little while.'
-          : 'The message could not be delivered right now. Please try again shortly.',
-      },
-      502,
-      requestId,
-    );
+    const detail = await res.text().catch(() => '');
+    // Keep the message so it is never lost, and the reason so it can be fixed.
+    log('warn', { requestId, event: 'contact', delivered: false, via: 'resend', status: res.status, note: detail.slice(0, 300), name, email, message });
   } catch (err) {
-    log('warn', { requestId, event: 'contact', delivered: false, note: String(/** @type {any} */ (err)?.message || err) });
-    return json({ ok: false, error: 'The message could not be delivered right now. Please try again shortly.' }, 502, requestId);
+    log('warn', { requestId, event: 'contact', delivered: false, via: 'resend', note: String(/** @type {any} */ (err)?.message || err), name, email, message });
   }
+  return json({ ok: false, useBrowser: true }, 200, requestId);
 }
 
 export function GET() {

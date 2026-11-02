@@ -80,7 +80,7 @@ function ContactForm() {
 
     setState('sending');
     try {
-      // Sent through this site's own backend, so ad blockers can't stop it.
+      // 1) The site's own backend (Resend email), never blocked by ad blockers.
       const res = await fetch('/api/contact', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -88,7 +88,25 @@ function ContactForm() {
         signal: AbortSignal.timeout(20000),
       });
       const body = await res.json().catch(() => ({}));
-      if (!res.ok || !body.ok) {
+      if (!body.ok && body.useBrowser) {
+        // 2) Backup: FormSubmit straight from the browser.
+        const fs = await fetch(`https://formsubmit.co/ajax/${site.formSubmitId}`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', accept: 'application/json' },
+          body: JSON.stringify({ name, email, message, _subject: `New TripMind enquiry from ${name}`, _template: 'table', _replyto: email }),
+          signal: AbortSignal.timeout(15000),
+        });
+        const fsBody = await fs.json().catch(() => ({}));
+        if (!fs.ok || String(fsBody.success) === 'false') {
+          setFailReason(
+            /activat/i.test(String(fsBody.message))
+              ? 'The contact form is being switched on. Please try again in a little while.'
+              : 'The message couldn’t be sent right now. Please try again shortly.',
+          );
+          setState('error');
+          return;
+        }
+      } else if (!res.ok || !body.ok) {
         setFailReason(body.error || '');
         setState('error');
         return;

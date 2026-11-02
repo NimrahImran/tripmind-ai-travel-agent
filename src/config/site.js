@@ -10,4 +10,9 @@ export const site = {
     linkedin: '',
     github: '',
   },
+  /**
+   * Backup delivery when Resend isn't set up: FormSubmit (free). This id is
+   * an alias, so the owner's email address appears nowhere in the code.
+   */
+  formSubmitId: 'a9b8967beaa15198a66de157fe886353',
 };

@@ -11,42 +11,51 @@ const send = (body, headers = {}) =>
       body: JSON.stringify(body),
     }),
   );
-const good = { name: 'Ali Khan', email: 'ali@example.com', message: 'I need a booking chatbot for my agency.' };
+const good = { name: 'Ali Khan', email: 'ali@example.com', message: 'I need a booking chatbot for my agency <b>now</b>.' };
 
-beforeEach(() => resetLimiter());
-afterEach(() => vi.unstubAllGlobals());
+beforeEach(() => {
+  resetLimiter();
+  process.env.RESEND_API_KEY = 're_test';
+  process.env.CONTACT_TO_EMAIL = 'owner@example.com';
+});
+afterEach(() => {
+  vi.unstubAllGlobals();
+  delete process.env.RESEND_API_KEY;
+  delete process.env.CONTACT_TO_EMAIL;
+});
 
 describe('POST /api/contact', () => {
-  it('forwards a valid message to FormSubmit as this website', async () => {
-    const fake = vi.fn(async () => jsonRes(200, { success: 'true' }));
+  it('emails the owner through Resend, with reply-to set to the visitor', async () => {
+    const fake = vi.fn(async () => jsonRes(200, { id: 'email_1' }));
     vi.stubGlobal('fetch', fake);
     const res = await send(good);
-    expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ ok: true });
     const [url, init] = fake.mock.calls[0];
-    expect(url).toMatch(/^https:\/\/formsubmit\.co\/ajax\/[0-9a-f]{32}$/);
-    expect(init.headers.referer).toMatch(/^https:\/\//);
-    expect(JSON.parse(init.body)).toMatchObject({ name: 'Ali Khan', _replyto: 'ali@example.com' });
+    expect(url).toBe('https://api.resend.com/emails');
+    expect(init.headers.authorization).toBe('Bearer re_test');
+    const payload = JSON.parse(init.body);
+    expect(payload).toMatchObject({ to: ['owner@example.com'], reply_to: 'ali@example.com' });
+    expect(payload.html).not.toContain('<b>now'); // visitor text is escaped
   });
 
-  it('explains when the form still needs activation', async () => {
-    vi.stubGlobal('fetch', async () => jsonRes(200, { success: 'false', message: 'This form needs Activation. We sent you an email.' }));
-    const res = await send(good);
-    const body = await res.json();
-    expect(res.status).toBe(502);
-    expect(body).toMatchObject({ ok: false, activation: true });
+  it('tells the browser to use the backup when Resend is not set up', async () => {
+    delete process.env.RESEND_API_KEY;
+    const fake = vi.fn();
+    vi.stubGlobal('fetch', fake);
+    expect(await (await send(good)).json()).toEqual({ ok: false, useBrowser: true });
+    expect(fake).not.toHaveBeenCalled();
   });
 
-  it('reports a clear error when FormSubmit is unreachable', async () => {
+  it('falls back to the backup if Resend refuses or is unreachable', async () => {
+    vi.stubGlobal('fetch', async () => jsonRes(403, { message: 'domain not verified' }));
+    expect((await (await send(good)).json()).useBrowser).toBe(true);
     vi.stubGlobal('fetch', async () => {
       throw new Error('offline');
     });
-    const body = await (await send(good)).json();
-    expect(body.ok).toBe(false);
-    expect(body.error).toMatch(/try again/);
+    expect((await (await send(good)).json()).useBrowser).toBe(true);
   });
 
-  it('rejects incomplete forms without calling FormSubmit', async () => {
+  it('rejects incomplete forms without sending anything', async () => {
     const fake = vi.fn();
     vi.stubGlobal('fetch', fake);
     expect((await send({ name: 'A', email: 'nope', message: 'hi' })).status).toBe(400);
@@ -61,7 +70,7 @@ describe('POST /api/contact', () => {
   });
 
   it('refuses other websites and limits repeated messages', async () => {
-    vi.stubGlobal('fetch', async () => jsonRes(200, { success: 'true' }));
+    vi.stubGlobal('fetch', async () => jsonRes(200, { id: 'x' }));
     expect((await send(good, { origin: 'https://spam.example' })).status).toBe(403);
     let last;
     for (let i = 0; i < 6; i++) last = await send(good, { 'x-forwarded-for': '7.7.7.7' });

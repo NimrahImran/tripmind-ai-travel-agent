@@ -19,7 +19,7 @@ Built by **Nimra Imran**, AI Engineer.
 - **Compare two places** with fit scores, costs and weather side by side
 - **Travel styles** (Backpacker, Family, Honeymoon, Luxury) and **English / Roman Urdu** replies
 - **Save trips** in the browser and **download a PDF**
-- **Contact form** sent through the site's own `/api/contact` (so ad blockers can't stop it) and delivered by email via FormSubmit, with validation, spam protection and rate limiting
+- **Contact form** sent through the site's own `/api/contact` and emailed by Resend (with FormSubmit as a backup), with validation, spam protection, rate limiting, and no message ever lost
 - **Hero slider** of 10 destinations, a WebGL globe, fully responsive down to small phones
 - **Share card** (Open Graph) so links show a full preview on WhatsApp, LinkedIn and X
 
@@ -120,6 +120,7 @@ See the agent's event stream in the terminal, no key needed: `npm run demo:api`.
 2. Get a free key at [Google AI Studio](https://aistudio.google.com/apikey).
 3. In Vercel, open **Settings → Environment Variables**, add `GEMINI_API_KEY` with your key, and save.
 4. Redeploy. Visit `/api/health` to confirm `"aiConfigured": true`.
+5. Contact form: create a free [Resend](https://resend.com) account, make an API key, and add `RESEND_API_KEY` plus `CONTACT_TO_EMAIL` (the email you signed up with) the same way.
 
 ## Credits
 
