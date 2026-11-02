@@ -1,0 +1,55 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<style>
+  @font-face { font-family: 'Display'; src: url('../node_modules/@fontsource-variable/bricolage-grotesque/files/bricolage-grotesque-latin-wdth-normal.woff2') format('woff2'); font-weight: 200 800; font-stretch: 75% 100%; }
+  @font-face { font-family: 'Body'; src: url('../node_modules/@fontsource-variable/instrument-sans/files/instrument-sans-latin-wght-normal.woff2') format('woff2'); font-weight: 400 700; }
+  * { box-sizing: border-box; margin: 0; }
+  body { width: 1200px; height: 630px; overflow: hidden; font-family: 'Body'; color: #eef5f4;
+    background: radial-gradient(70% 80% at 90% 0%, rgba(46,139,131,.55), transparent 70%), radial-gradient(60% 60% at 0% 100%, rgba(244,177,63,.18), transparent 70%), #0f2e3a; }
+  .grid { position: absolute; inset: 0; display: grid; grid-template-columns: 1fr 470px; gap: 40px; padding: 64px 72px; align-items: center; }
+  .brand { display: flex; align-items: center; gap: 14px; font-family: 'Display'; font-weight: 700; font-size: 34px; letter-spacing: -.02em; }
+  h1 { font-family: 'Display'; font-weight: 760; font-stretch: 84%; font-size: 84px; line-height: .95; letter-spacing: -.04em; margin-top: 40px; }
+  p { margin-top: 26px; font-size: 26px; line-height: 1.4; color: #a9c0c2; max-width: 30ch; }
+  .by { margin-top: 34px; font-size: 22px; color: #eef5f4; }
+  .by b { color: #f4b13f; }
+  .card { border-radius: 26px; background: rgba(8,24,31,.55); border: 1px solid rgba(255,255,255,.14); padding: 26px 28px; box-shadow: 0 40px 80px -30px rgba(0,0,0,.6); transform: perspective(1200px) rotateY(-10deg) rotateX(3deg); }
+  .head { display: flex; align-items: center; gap: 12px; font-weight: 600; font-size: 21px; padding-bottom: 16px; border-bottom: 1px solid rgba(255,255,255,.1); }
+  .ok { width: 26px; height: 26px; border-radius: 50%; background: #2e8b83; display: grid; place-items: center; }
+  ul { list-style: none; padding: 0; margin-top: 8px; }
+  li { display: flex; gap: 14px; align-items: flex-start; padding: 11px 0; font-size: 19px; }
+  li .i { width: 22px; height: 22px; border-radius: 50%; background: #2e8b83; flex: none; display: grid; place-items: center; margin-top: 2px; }
+  li small { display: block; color: #a9c0c2; font-size: 15px; margin-top: 2px; }
+  li.run .i { background: none; border: 3px solid rgba(244,177,63,.25); border-top-color: #f4b13f; }
+  .wx { display: flex; gap: 8px; margin-top: 12px; }
+  .wx div { flex: 1; border-radius: 12px; background: rgba(255,255,255,.06); text-align: center; padding: 8px 0; font-size: 15px; color: #a9c0c2; }
+  .wx b { display: block; color: #fff; font-size: 17px; }
+</style>
+</head>
+<body>
+  <div class="grid">
+    <div>
+      <div class="brand">
+        <svg width="44" height="44" viewBox="0 0 32 32"><circle cx="16" cy="16" r="15" fill="#f4b13f"/><path d="M16 6.5l3.2 9.5L16 25.5l-3.2-9.5z" fill="#0f2e3a"/><circle cx="16" cy="16" r="2.2" fill="#f4b13f"/></svg>
+        TripMind
+      </div>
+      <h1>Plan any trip with an AI travel agent</h1>
+      <p>Live weather, budget conversion, a route map and a day-by-day plan, streamed step by step.</p>
+      <div class="by">Built by <b>Nimra Imran</b>, AI Engineer</div>
+    </div>
+    <div class="card">
+      <div class="head"><span class="ok"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><path d="M5 12.5l4.2 4.2L19 7"/></svg></span>Planning 5 days in Hunza</div>
+      <ul>
+        <li><span class="i"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><path d="M5 12.5l4.2 4.2L19 7"/></svg></span><span>Finding Hunza on the map<small>36.32°N 74.65°E</small></span></li>
+        <li><span class="i"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><path d="M5 12.5l4.2 4.2L19 7"/></svg></span><span>Checking the weather for your dates<small>Live forecast</small></span></li>
+        <li><span class="i"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><path d="M5 12.5l4.2 4.2L19 7"/></svg></span><span>Balancing a PKR 80,000 budget<small>PKR 8,000 to spare</small></span></li>
+        <li class="run"><span class="i"></span><span>Writing your day-by-day plan…</span></li>
+      </ul>
+      <div class="wx">
+        <div>Day 1<b>☀️ 18°</b></div><div>Day 2<b>🌤️ 19°</b></div><div>Day 3<b>⛅ 20°</b></div><div>Day 4<b>🌦️ 21°</b></div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
