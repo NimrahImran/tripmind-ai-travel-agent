@@ -95,23 +95,17 @@ function ContactForm() {
           headers: { 'content-type': 'application/json', accept: 'application/json' },
           body: JSON.stringify({ name, email, message, _subject: `New TripMind enquiry from ${name}`, _template: 'table', _replyto: email }),
           signal: AbortSignal.timeout(15000),
-        });
-        const fsBody = await fs.json().catch(() => ({}));
-        if (!fs.ok || String(fsBody.success) === 'false') {
+        }).catch(() => null); // blocked by an ad blocker or offline
+        const fsBody = fs ? await fs.json().catch(() => ({})) : { message: 'Browser could not reach FormSubmit' };
+        if (!fs || !fs.ok || String(fsBody.success) === 'false') {
           // Tell the backend what FormSubmit said, so the reason shows in the logs.
           fetch('/api/contact', {
             method: 'POST',
             headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ report: String(fsBody.message || `HTTP ${fs.status}`), name, email, message }),
+            body: JSON.stringify({ report: String(fsBody.message || `HTTP ${fs?.status}`), name, email, message }),
             keepalive: true,
           }).catch(() => {});
-          setFailReason(
-            /activat/i.test(String(fsBody.message))
-              ? 'The contact form is being switched on. Please try again in a little while.'
-              : 'The message couldn’t be sent right now. Please try again shortly.',
-          );
-          setState('error');
-          return;
+          // The message is already saved on the server, so the visitor is done.
         }
       } else if (!res.ok || !body.ok) {
         setFailReason(body.error || '');
