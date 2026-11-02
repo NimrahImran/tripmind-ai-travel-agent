@@ -1,0 +1,14 @@
+# Secrets — never commit real keys
+.env
+.env.local
+.env.*.local
+
+# Dependencies and builds
+node_modules/
+dist/
+.vercel/
+
+# Logs and OS files
+*.log
+.DS_Store
+Thumbs.db

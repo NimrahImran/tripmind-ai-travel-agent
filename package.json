@@ -1,0 +1,38 @@
+{
+  "name": "tripmind",
+  "version": "1.0.0",
+  "private": true,
+  "description": "TripMind — an AI travel advisor agent that plans trips with live weather, currency and maps, streamed step by step.",
+  "author": "Nimra Imran",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p .",
+    "check": "npm run typecheck && npm test && npm run build",
+    "demo:api": "node scripts/smoke-api.mjs"
+  },
+  "dependencies": {
+    "@fontsource-variable/bricolage-grotesque": "^5.2.0",
+    "@fontsource-variable/instrument-sans": "^5.2.0",
+    "cobe": "^0.6.3",
+    "leaflet": "^1.9.4",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-markdown": "^9.0.1",
+    "remark-gfm": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "@vitejs/plugin-react": "^4.5.2",
+    "typescript": "^5.9.3",
+    "vite": "^6.3.5",
+    "vitest": "^2.1.9"
+  }
+}
