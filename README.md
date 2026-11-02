@@ -49,7 +49,7 @@ The model writes Markdown followed by a hidden JSON block (map pins and budget).
 |---|---|
 | Frontend | React 18, Vite, Leaflet, cobe (WebGL globe), react-markdown |
 | Backend | Vercel serverless functions (Node, Web `Request`/`Response`), JSDoc types checked by TypeScript |
-| Quality | Vitest (55 tests), GitHub Actions CI |
+| Quality | Vitest (58 tests), GitHub Actions CI |
 | AI | Google Gemini 2.5 Flash via streaming REST, automatic model fallback |
 | Data | Open-Meteo geocoding, forecast and archive APIs; open.er-api.com exchange rates |
 
@@ -88,7 +88,7 @@ The backend is plain JavaScript with JSDoc types, checked by the TypeScript comp
 
 ```bash
 npm run typecheck   # TypeScript over api/
-npm test            # 55 tests
+npm test            # 58 tests
 npm run check       # all of the above plus a production build (what CI runs)
 ```
 

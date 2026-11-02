@@ -75,6 +75,41 @@ describe('streamGemini', () => {
     expect(calls).toHaveLength(0);
   });
 
+  it('tries the next model when one is overloaded (503)', async () => {
+    installFetch({
+      gemini: (model) => (model === 'gemini-2.5-flash' ? jsonRes(503, { error: { message: 'The model is overloaded.' } }) : geminiSse('Lite answered')),
+    });
+    expect((await run()).full).toBe('Lite answered');
+  });
+
+  it('moves on when a model never starts answering', async () => {
+    process.env.GEMINI_CONNECT_TIMEOUT_MS = '40';
+    const hang = (signal) =>
+      new Promise((_, reject) => signal.addEventListener('abort', () => reject(signal.reason)));
+    const fake = vi.fn(async (url, init) => (String(url).includes('gemini-2.5-flash:') ? hang(init.signal) : geminiSse('Second model')));
+    vi.stubGlobal('fetch', fake);
+    expect((await run()).full).toBe('Second model');
+    delete process.env.GEMINI_CONNECT_TIMEOUT_MS;
+  });
+
+  it('stops with a clear error if an answer stalls halfway', async () => {
+    process.env.GEMINI_STALL_TIMEOUT_MS = '40';
+    const enc = new TextEncoder();
+    const fake = vi.fn(async (_url, init) => {
+      const body = new ReadableStream({
+        start(c) {
+          c.enqueue(enc.encode(`data: ${JSON.stringify({ candidates: [{ content: { parts: [{ text: 'Day 1' }] } }] })}\n\n`));
+          init.signal.addEventListener('abort', () => c.error(init.signal.reason));
+        },
+      });
+      return new Response(body, { status: 200 });
+    });
+    vi.stubGlobal('fetch', fake);
+    await expect(run()).rejects.toMatchObject({ code: 'UPSTREAM' });
+    expect(fake).toHaveBeenCalledTimes(1); // never mixes two models' answers
+    delete process.env.GEMINI_STALL_TIMEOUT_MS;
+  });
+
   it('asks the user to retry on Google server errors', async () => {
     installFetch({ gemini: () => jsonRes(503, { error: { message: 'overloaded' } }) });
     await expect(run()).rejects.toMatchObject({ code: 'UPSTREAM', retryAfter: 8 });

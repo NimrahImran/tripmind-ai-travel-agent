@@ -4,7 +4,16 @@
 
 const API = 'https://generativelanguage.googleapis.com/v1beta/models';
 
-export const DEFAULT_MODELS = 'gemini-2.5-flash,gemini-2.5-flash-lite,gemini-flash-latest';
+import { log } from './http.js';
+
+/** Time allowed for Google to start answering, per model. */
+const connectTimeout = () => Number(process.env.GEMINI_CONNECT_TIMEOUT_MS) || 20_000;
+/** Longest silence allowed in the middle of an answer. */
+const stallTimeout = () => Number(process.env.GEMINI_STALL_TIMEOUT_MS) || 25_000;
+/** Total time for all attempts, safely under the function's limit. */
+const TOTAL_BUDGET_MS = 100_000;
+
+export const DEFAULT_MODELS ='gemini-2.5-flash,gemini-2.5-flash-lite,gemini-flash-latest';
 
 /** Models tried in order. If Google retires or rate-limits one, the next is used. */
 export function models() {
@@ -55,60 +64,109 @@ export async function streamGemini({ system, prompt, temperature = 0.7, maxToken
     );
   }
 
+  const deadline = Date.now() + TOTAL_BUDGET_MS;
+  /** @type {AgentError | undefined} */
   let lastErr;
+  // Remembers which failure is most useful to show if every model fails.
+  const keep = (/** @type {AgentError} */ e) => {
+    const rank = { RATE_LIMIT: 3, UPSTREAM: 2, NETWORK: 1, MODEL: 0 };
+    if (!lastErr || (rank[e.code] ?? 0) >= (rank[lastErr.code] ?? 0)) lastErr = e;
+  };
+
   for (const model of models()) {
+    if (Date.now() > deadline - 5000) break;
     const generationConfig = { temperature, maxOutputTokens: maxTokens };
     // Thinking adds seconds of silence; this agent already gets its facts from tools.
     if (model.startsWith('gemini-2.5')) generationConfig.thinkingConfig = { thinkingBudget: 0 };
 
-    const res = await fetch(`${API}/${model}:streamGenerateContent?alt=sse`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', 'x-goog-api-key': key },
-      body: JSON.stringify({
-        systemInstruction: { parts: [{ text: system }] },
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        generationConfig,
-      }),
-      signal: AbortSignal.timeout(90_000),
-    }).catch((e) => {
-      throw new AgentError('NETWORK', `Could not reach Gemini: ${e.message}`);
-    });
+    // Abort if Google hasn't started answering in time, or goes quiet
+    // mid-answer for too long, so the next model can try.
+    const ctrl = new AbortController();
+    let timer = setTimeout(() => ctrl.abort(new Error('no response')), Math.min(connectTimeout(), deadline - Date.now()));
+    const resetTimer = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => ctrl.abort(new Error('stalled')), Math.min(stallTimeout(), Math.max(1000, deadline - Date.now())));
+    };
 
-    if (res.ok) return readSse(res, onText);
+    /** @type {Response} */
+    let res;
+    try {
+      res = await fetch(`${API}/${model}:streamGenerateContent?alt=sse`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-goog-api-key': key },
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: system }] },
+          contents: [{ role: 'user', parts: [{ text: prompt }] }],
+          generationConfig,
+        }),
+        signal: ctrl.signal,
+      });
+    } catch (e) {
+      clearTimeout(timer);
+      log('warn', { event: 'gemini_failed', model, reason: String(/** @type {any} */ (e)?.message || e) });
+      keep(new AgentError('NETWORK', 'Gemini did not respond in time. Please try again.', { retryAfter: 5 }));
+      continue;
+    }
+
+    if (res.ok) {
+      let wrote = false;
+      try {
+        resetTimer();
+        return await readSse(res, (t) => {
+          wrote = true;
+          resetTimer();
+          onText(t);
+        });
+      } catch (e) {
+        if (e instanceof AgentError) throw e;
+        log('warn', { event: 'gemini_stream_broke', model, wrote, reason: String(/** @type {any} */ (e)?.message || e) });
+        // Text already reached the visitor: switching models would mix two answers.
+        if (wrote) throw new AgentError('UPSTREAM', 'Gemini stopped halfway through. Please try again.', { retryAfter: 5 });
+        keep(new AgentError('NETWORK', 'Gemini did not respond in time. Please try again.', { retryAfter: 5 }));
+        continue;
+      } finally {
+        clearTimeout(timer);
+      }
+    }
+    clearTimeout(timer);
 
     const body = await res.json().catch(() => ({}));
     const msg = body?.error?.message || `Gemini responded ${res.status}`;
+    log('warn', { event: 'gemini_error', model, status: res.status, message: String(msg).slice(0, 300) });
 
     if (res.status === 429) {
       // Each model has its own free quota, so try the next one first.
       const retry = body?.error?.details?.find((d) => d['@type']?.includes('RetryInfo'))?.retryDelay;
-      lastErr = new AgentError('RATE_LIMIT', 'The free AI quota is busy right now.', {
-        retryAfter: Math.min(Math.max(parseInt(retry, 10) || 20, 5), 60),
-      });
+      keep(
+        new AgentError('RATE_LIMIT', 'The free AI quota is busy right now.', {
+          retryAfter: Math.min(Math.max(parseInt(retry, 10) || 20, 5), 60),
+        }),
+      );
       continue;
     }
     if (res.status === 400 && /api key/i.test(msg)) {
       throw new AgentError('BAD_KEY', 'The Gemini API key was rejected. Check GEMINI_API_KEY in Vercel and redeploy.');
     }
-    if (res.status === 403) {
+    if (res.status === 403 && !/region|location|country/i.test(msg)) {
       throw new AgentError('BAD_KEY', 'The Gemini API key does not have access. Create a new key in Google AI Studio.');
     }
-    // 404 / unsupported model → try the next model.
+    // Retired model, overloaded model or server error → try the next model.
     if (res.status === 404 || /not found|not supported/i.test(msg)) {
-      if (lastErr?.code !== 'RATE_LIMIT') lastErr = new AgentError('MODEL', msg);
+      keep(new AgentError('MODEL', 'No Gemini model is available right now.'));
       continue;
     }
     if (res.status >= 500) {
-      throw new AgentError('UPSTREAM', 'Gemini is having a moment. Please try again in a few seconds.', {
-        retryAfter: 8,
-      });
+      keep(new AgentError('UPSTREAM', 'Gemini is busy right now. Please try again in a few seconds.', { retryAfter: 8 }));
+      continue;
     }
-    throw new AgentError('UPSTREAM', msg);
+    throw new AgentError('UPSTREAM', 'Gemini could not answer this request. Please try again.');
   }
-  throw lastErr || new AgentError('MODEL', 'No Gemini model is available.');
+  throw lastErr || new AgentError('UPSTREAM', 'Gemini is busy right now. Please try again in a few seconds.', { retryAfter: 8 });
 }
 
+/** @param {Response} res @param {(t: string) => void} onText */
 async function readSse(res, onText) {
+  if (!res.body) return '';
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
