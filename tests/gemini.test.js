@@ -40,7 +40,7 @@ describe('streamGemini', () => {
 
   it('falls back to the next model when one is retired', async () => {
     const { calls } = installFetch({
-      gemini: (model) => (model === 'gemini-2.5-flash' ? jsonRes(404, { error: { message: 'model not found' } }) : geminiSse('From lite')),
+      gemini: (model) => (model === 'gemini-3.8-flash' ? jsonRes(404, { error: { message: 'model not found' } }) : geminiSse('From lite')),
     });
     const { full } = await run();
     expect(full).toBe('From lite');
@@ -49,7 +49,7 @@ describe('streamGemini', () => {
 
   it('tries another model when one hits its free quota', async () => {
     installFetch({
-      gemini: (model) => (model === 'gemini-2.5-flash' ? jsonRes(429, { error: { message: 'quota' } }) : geminiSse('Second model')),
+      gemini: (model) => (model === 'gemini-3.8-flash' ? jsonRes(429, { error: { message: 'quota' } }) : geminiSse('Second model')),
     });
     expect((await run()).full).toBe('Second model');
   });
@@ -75,9 +75,21 @@ describe('streamGemini', () => {
     expect(calls).toHaveLength(0);
   });
 
+  it('follows the replacement model Google names when a model is retired', async () => {
+    process.env.GEMINI_MODEL = 'old-model';
+    const { calls } = installFetch({
+      gemini: (model) =>
+        model === 'old-model'
+          ? jsonRes(404, { error: { message: 'This model models/old-model is no longer available to new users. Please update your code to use models/new-model-9 for the latest features.' } })
+          : geminiSse(`Answer from ${model}`),
+    });
+    expect((await run()).full).toBe('Answer from new-model-9');
+    expect(calls[1]).toContain('/models/new-model-9:');
+  });
+
   it('tries the next model when one is overloaded (503)', async () => {
     installFetch({
-      gemini: (model) => (model === 'gemini-2.5-flash' ? jsonRes(503, { error: { message: 'The model is overloaded.' } }) : geminiSse('Lite answered')),
+      gemini: (model) => (model === 'gemini-3.8-flash' ? jsonRes(503, { error: { message: 'The model is overloaded.' } }) : geminiSse('Lite answered')),
     });
     expect((await run()).full).toBe('Lite answered');
   });
@@ -86,7 +98,7 @@ describe('streamGemini', () => {
     process.env.GEMINI_CONNECT_TIMEOUT_MS = '40';
     const hang = (signal) =>
       new Promise((_, reject) => signal.addEventListener('abort', () => reject(signal.reason)));
-    const fake = vi.fn(async (url, init) => (String(url).includes('gemini-2.5-flash:') ? hang(init.signal) : geminiSse('Second model')));
+    const fake = vi.fn(async (url, init) => (String(url).includes('gemini-3.8-flash:') ? hang(init.signal) : geminiSse('Second model')));
     vi.stubGlobal('fetch', fake);
     expect((await run()).full).toBe('Second model');
     delete process.env.GEMINI_CONNECT_TIMEOUT_MS;

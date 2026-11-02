@@ -13,7 +13,7 @@ const stallTimeout = () => Number(process.env.GEMINI_STALL_TIMEOUT_MS) || 25_000
 /** Total time for all attempts, safely under the function's limit. */
 const TOTAL_BUDGET_MS = 100_000;
 
-export const DEFAULT_MODELS ='gemini-2.5-flash,gemini-2.5-flash-lite,gemini-flash-latest';
+export const DEFAULT_MODELS = 'gemini-3.8-flash,gemini-3.5-flash-lite,gemini-flash-latest,gemini-flash-lite-latest';
 
 /** Models tried in order. If Google retires or rate-limits one, the next is used. */
 export function models() {
@@ -73,7 +73,9 @@ export async function streamGemini({ system, prompt, temperature = 0.7, maxToken
     if (!lastErr || (rank[e.code] ?? 0) >= (rank[lastErr.code] ?? 0)) lastErr = e;
   };
 
-  for (const model of models()) {
+  const queue = models();
+  for (let i = 0; i < queue.length && i < 6; i++) {
+    const model = queue[i];
     if (Date.now() > deadline - 5000) break;
     const generationConfig = { temperature, maxOutputTokens: maxTokens };
     // Thinking adds seconds of silence; this agent already gets its facts from tools.
@@ -112,11 +114,14 @@ export async function streamGemini({ system, prompt, temperature = 0.7, maxToken
       let wrote = false;
       try {
         resetTimer();
-        return await readSse(res, (t) => {
-          wrote = true;
-          resetTimer();
-          onText(t);
-        });
+        return await readSse(
+          res,
+          (t) => {
+            wrote = true;
+            onText(t);
+          },
+          resetTimer,
+        );
       } catch (e) {
         if (e instanceof AgentError) throw e;
         log('warn', { event: 'gemini_stream_broke', model, wrote, reason: String(/** @type {any} */ (e)?.message || e) });
@@ -151,7 +156,10 @@ export async function streamGemini({ system, prompt, temperature = 0.7, maxToken
       throw new AgentError('BAD_KEY', 'The Gemini API key does not have access. Create a new key in Google AI Studio.');
     }
     // Retired model, overloaded model or server error → try the next model.
-    if (res.status === 404 || /not found|not supported/i.test(msg)) {
+    if (res.status === 404 || /not found|not supported|no longer available/i.test(msg)) {
+      // Google names the replacement model in the message; try it next.
+      const successor = /use models\/([\w.-]+)/i.exec(msg)?.[1];
+      if (successor && !queue.includes(successor)) queue.splice(i + 1, 0, successor);
       keep(new AgentError('MODEL', 'No Gemini model is available right now.'));
       continue;
     }
@@ -164,8 +172,12 @@ export async function streamGemini({ system, prompt, temperature = 0.7, maxToken
   throw lastErr || new AgentError('UPSTREAM', 'Gemini is busy right now. Please try again in a few seconds.', { retryAfter: 8 });
 }
 
-/** @param {Response} res @param {(t: string) => void} onText */
-async function readSse(res, onText) {
+/**
+ * @param {Response} res
+ * @param {(t: string) => void} onText
+ * @param {() => void} [onActivity] called whenever bytes arrive (keeps the stall timer alive while the model thinks)
+ */
+async function readSse(res, onText, onActivity) {
   if (!res.body) return '';
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
@@ -175,6 +187,7 @@ async function readSse(res, onText) {
   for (;;) {
     const { value, done } = await reader.read();
     if (done) break;
+    onActivity?.();
     buffer += decoder.decode(value, { stream: true });
     let idx;
     while ((idx = buffer.indexOf('\n')) >= 0) {

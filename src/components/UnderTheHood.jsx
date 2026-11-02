@@ -15,10 +15,10 @@ const SAMPLE = `{"type":"step","label":"Checking the weather for your dates","st
 const STACK = [
   ['Frontend', 'React, Vite, Leaflet maps, a WebGL globe'],
   ['Backend', 'Node.js serverless functions on Vercel'],
-  ['AI model', 'Google Gemini 2.5 Flash, streaming'],
+  ['AI model', 'Google Gemini Flash, streaming with automatic model fallback'],
   ['Live data', 'Open-Meteo weather and geocoding, exchange rates'],
   ['Safety', 'Key stays on the server, only this site may call the agent, input validation, rate limiting'],
-  ['Quality', '58 automated tests, type-checked backend, checks run on every update'],
+  ['Quality', '59 automated tests, type-checked backend, checks run on every update'],
 ];
 
 export default function UnderTheHood() {
