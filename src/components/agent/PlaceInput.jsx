@@ -13,7 +13,6 @@ const PlaceInput = forwardRef(function PlaceInput({ id, value, onChange, placeho
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState([]);
   const [active, setActive] = useState(-1);
-  const [loading, setLoading] = useState(false);
   const listId = useId();
   const wrap = useRef(null);
   const typed = useRef(false); // only suggest after the person types, not on prefill
@@ -24,12 +23,8 @@ const PlaceInput = forwardRef(function PlaceInput({ id, value, onChange, placeho
     const local = popularMatches(q);
     setItems(local);
     setActive(-1);
-    if (q.length < 2) {
-      setLoading(false);
-      return;
-    }
+    if (q.length < 2) return;
     const ctrl = new AbortController();
-    setLoading(true);
     const t = setTimeout(async () => {
       try {
         const res = await fetch(`/api/places?q=${encodeURIComponent(q)}`, { signal: ctrl.signal });
@@ -47,8 +42,6 @@ const PlaceInput = forwardRef(function PlaceInput({ id, value, onChange, placeho
         setItems(merged.slice(0, 8));
       } catch {
         /* keep the instant list */
-      } finally {
-        if (!ctrl.signal.aborted) setLoading(false);
       }
     }, 220);
     return () => {
@@ -118,7 +111,6 @@ const PlaceInput = forwardRef(function PlaceInput({ id, value, onChange, placeho
         onFocus={() => items.length && setOpen(true)}
         onKeyDown={onKeyDown}
       />
-      {loading && <span className="place-spin" aria-hidden="true" />}
       {show && (
         <ul className="place-list" role="listbox" id={listId}>
           {items.map((p, i) => (
