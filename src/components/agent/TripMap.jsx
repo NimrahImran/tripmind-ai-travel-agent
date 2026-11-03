@@ -97,21 +97,20 @@ export default function TripMap({ place, trip }) {
 }
 
 /**
- * Free map tiles, no key needed. If a provider refuses tiles (for example
- * it asks for an API key), the map quietly switches to the next one.
+ * Free map tiles, no key needed, with place names in English everywhere.
+ * If a provider refuses tiles, the map quietly switches to the next one.
  */
 const TILE_PROVIDERS = [
-  {
-    url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-    options: { maxZoom: 19, attribution: '&copy; OpenStreetMap contributors' },
-  },
+  // Esri street map: place names in English worldwide, like Google Maps.
   {
     url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
     options: { maxZoom: 19, attribution: 'Tiles &copy; Esri' },
   },
+  // Backup: Esri light basemap with its English reference labels on top.
   {
-    url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-    options: { maxZoom: 19, subdomains: 'abcd', attribution: '&copy; OpenStreetMap &copy; CARTO' },
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+    labels: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}',
+    options: { maxZoom: 16, attribution: 'Tiles &copy; Esri' },
   },
 ];
 
@@ -132,6 +131,7 @@ function addTiles(map, index = 0) {
     }
   });
   layer.addTo(map);
+  if (provider.labels) L.tileLayer(provider.labels, { ...provider.options, crossOrigin: true }).addTo(map);
 }
 
 function escapeHtml(s) {

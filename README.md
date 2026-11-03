@@ -52,7 +52,7 @@ The model writes Markdown followed by a hidden JSON block (map pins and budget).
 | Backend | Vercel serverless functions (Node, Web `Request`/`Response`), JSDoc types checked by TypeScript |
 | Quality | Vitest (74 tests), GitHub Actions CI |
 | AI | Google Gemini Flash (3.x) via streaming REST, automatic model fallback that follows Google's model replacements |
-| Data | Open-Meteo geocoding, forecast and archive APIs; open.er-api.com exchange rates; OpenStreetMap tiles with automatic fallback |
+| Data | Open-Meteo geocoding, forecast and archive APIs; open.er-api.com exchange rates; Esri map tiles with English labels and automatic fallback |
 
 ### Reliability and safety
 
