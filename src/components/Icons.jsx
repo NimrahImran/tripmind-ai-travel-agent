@@ -1,3 +1,5 @@
+import { useId } from 'react';
+
 // Small inline icon set (stroke icons, currentColor).
 const base = {
   fill: 'none',
@@ -9,13 +11,46 @@ const base = {
   'aria-hidden': true,
 };
 
-export const Logo = (p) => (
-  <svg viewBox="0 0 32 32" aria-hidden="true" {...p}>
-    <circle cx="16" cy="16" r="15" fill="#f4b13f" />
-    <path d="M16 6.5l3.2 9.5L16 25.5l-3.2-9.5z" fill="#0f2e3a" />
-    <circle cx="16" cy="16" r="2.2" fill="#f4b13f" />
-  </svg>
-);
+/** TripMind "Mind Pin": a saffron map pin holding an AI circuit-brain, with a plane on its orbit. */
+export function Logo(p) {
+  const id = useId().replace(/:/g, '');
+  return (
+    <svg viewBox="0 0 64 64" aria-hidden="true" {...p}>
+      <defs>
+        <linearGradient id={`${id}sun`} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#ffd27a" />
+          <stop offset=".55" stopColor="#f4b13f" />
+          <stop offset="1" stopColor="#d98a12" />
+        </linearGradient>
+      </defs>
+      <path d="M8 40 C 2 26, 14 6, 34 5" fill="none" stroke="#4fc3b5" strokeWidth="2" strokeLinecap="round" strokeDasharray="2.5 3.5" />
+      <path d="M32 4C19.8 4 10 13.6 10 25.6 10 41.5 32 60 32 60S54 41.5 54 25.6C54 13.6 44.2 4 32 4Z" fill={`url(#${id}sun)`} />
+      <circle cx="32" cy="25.5" r="14" fill="#0f2e3a" />
+      <g fill="none" stroke="#f4b13f" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M32 14.5V36.5" />
+        <path d="M32 19.5H27V16.8" />
+        <path d="M32 25.5H23.5" />
+        <path d="M32 31H26.5V34" />
+        <path d="M32 18H37.5V15.8" />
+        <path d="M32 24H40.5" />
+        <path d="M32 29.5H38V33.5" />
+      </g>
+      <g fill="#ffe1a1">
+        <circle cx="27" cy="16.3" r="1.7" />
+        <circle cx="23" cy="25.5" r="1.7" />
+        <circle cx="26.5" cy="34.4" r="1.7" />
+        <circle cx="37.5" cy="15.3" r="1.7" />
+        <circle cx="41" cy="24" r="1.7" />
+        <circle cx="38" cy="33.9" r="1.7" />
+      </g>
+      <path
+        d="M0 3.6 L6.2 3.1 L9.6 0 L10.9 0 L9.4 3 L12.6 2.8 L13.8 1.3 L14.7 1.3 L14 3.8 L14.7 6.3 L13.8 6.3 L12.6 4.8 L9.4 4.6 L10.9 7.6 L9.6 7.6 L6.2 4.5 L0 4 Z"
+        fill="#4fc3b5"
+        transform="translate(37 0.5) rotate(-12) scale(1.15)"
+      />
+    </svg>
+  );
+}
 export const ArrowLeft = (p) => (
   <svg {...base} {...p}>
     <path d="M15 5l-7 7 7 7" />
