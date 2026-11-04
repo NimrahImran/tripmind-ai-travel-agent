@@ -577,6 +577,24 @@
   gap: 24px;
   align-items: start;
 }
+.hood-main {
+  min-width: 0;
+}
+.hood-links {
+  margin-top: 20px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.hood-links .btn-quiet:hover {
+  border-color: var(--ink);
+}
+@media (max-width: 520px) {
+  .hood-links .btn {
+    flex: 1 1 100%;
+    justify-content: center;
+  }
+}
 .code-card {
   margin: 0;
   border-radius: var(--r-md);

@@ -2,7 +2,7 @@
   "name": "tripmind",
   "version": "1.0.0",
   "private": true,
-  "description": "TripMind — an AI travel advisor agent that plans trips with live weather, currency and maps, streamed step by step.",
+  "description": "TripMind \u2014 an AI travel advisor agent that plans trips with live weather, currency and maps, streamed step by step.",
   "author": "Nimra Imran",
   "type": "module",
   "engines": {
@@ -16,7 +16,8 @@
     "test:watch": "vitest",
     "typecheck": "tsc -p .",
     "check": "npm run typecheck && npm test && npm run build",
-    "demo:api": "node scripts/smoke-api.mjs"
+    "demo:api": "node scripts/smoke-api.mjs",
+    "docs:api": "node scripts/build-openapi.mjs"
   },
   "dependencies": {
     "@fontsource-variable/bricolage-grotesque": "^5.2.0",

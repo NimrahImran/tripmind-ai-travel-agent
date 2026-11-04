@@ -1,0 +1,691 @@
+// Builds public/openapi.json — the machine-readable API reference.
+// Edit this file, then run: node scripts/build-openapi.mjs
+// (tests/openapi.test.js checks the spec still matches the real endpoints)
+import { writeFileSync } from 'node:fs';
+
+const STREAM_ERROR_CODES = ['NO_KEY', 'BAD_KEY', 'RATE_LIMIT', 'MODEL', 'UPSTREAM', 'NETWORK', 'BLOCKED', 'INTERNAL'];
+const STYLES = ['balanced', 'backpacker', 'family', 'honeymoon', 'luxury'];
+const CURRENCIES = ['PKR', 'USD', 'EUR', 'GBP', 'AED', 'SAR', 'INR', 'CAD', 'AUD', 'TRY', 'MYR'];
+
+const ref = (name) => ({ $ref: `#/components/schemas/${name}` });
+const errorResponse = (description, code, example) => ({
+  description,
+  content: {
+    'application/json': {
+      schema: ref('Error'),
+      example: { error: { code, message: example } },
+    },
+  },
+});
+
+const tripFields = {
+  days: { type: 'integer', minimum: 1, maximum: 14, default: 5 },
+  travelers: { type: 'integer', minimum: 1, maximum: 20, default: 2 },
+  budget: {
+    type: 'integer',
+    minimum: 1,
+    maximum: 1000000000,
+    description: 'Total budget for the whole trip, in `currency`.',
+    default: 100000,
+  },
+  currency: { type: 'string', enum: CURRENCIES, default: 'PKR' },
+  style: { type: 'string', enum: STYLES, default: 'balanced' },
+  startDate: {
+    type: 'string',
+    format: 'date',
+    description: 'Trip start (YYYY-MM-DD). Past or missing dates become one week from today.',
+  },
+  lang: {
+    type: 'string',
+    enum: ['en', 'ur'],
+    default: 'en',
+    description: '`ur` replies in Roman Urdu; place names, prices and headings stay in English.',
+  },
+};
+
+const spec = {
+  openapi: '3.1.0',
+  info: {
+    title: 'TripMind Agent API',
+    version: '1.0.0',
+    summary: 'An AI travel agent that looks up live data, then streams a trip plan step by step.',
+    description:
+      'TripMind turns a destination, dates, travellers and a budget into a day-by-day plan. The agent geocodes the place, ' +
+      'fetches the weather for the exact dates and converts the budget in parallel, then makes one streamed call to Google Gemini.\n\n' +
+      '`POST /api/plan` answers with **NDJSON**: one JSON event per line (`step`, `data`, `text`, then `done` or `error`). ' +
+      'Read the body as a stream to show progress as it happens.\n\n' +
+      '**Lenient inputs.** Numbers outside their range are clamped to the nearest limit, and unknown `style`, `currency` or `mode` values fall back to the default, so only a missing destination, message or plan is rejected (400).\n\n' +
+      '**Access.** No API key is needed. Browser requests from other websites are refused (403) unless their domain is listed in the `ALLOWED_ORIGINS` setting; requests without an `Origin` header (curl, servers) are accepted and rate-limited. The Gemini key lives only on the server.\n\n' +
+      '**Tracing.** Every `/api/plan` and `/api/contact` response carries an `x-request-id` header that matches the server log line.\n\n' +
+      '**Methods.** Unsupported HTTP methods get 405; on `/api/plan` the body carries the code `METHOD`.',
+    contact: { name: 'Nimra Imran' },
+  },
+  externalDocs: {
+    description: 'Source code on GitHub',
+    url: 'https://github.com/NimrahImran/tripmind-ai-travel-agent',
+  },
+  security: [],
+  servers: [
+    {
+      url: 'https://tripmind-travel-agent.vercel.app',
+      description: 'Production',
+    },
+    { url: 'http://localhost:5173', description: 'Local (npm run dev)' },
+  ],
+  tags: [
+    {
+      name: 'Agent',
+      description: 'Trip planning, comparisons and follow-up edits.',
+    },
+    {
+      name: 'Places',
+      description: 'Worldwide place suggestions for search boxes.',
+    },
+    { name: 'Contact', description: 'The Hire Me form.' },
+    { name: 'Status', description: 'Health check.' },
+  ],
+  paths: {
+    '/api/plan': {
+      post: {
+        tags: ['Agent'],
+        operationId: 'runAgent',
+        summary: 'Plan a trip, compare two places, or edit a plan',
+        description:
+          'Choose the job with `mode`:\n\n' +
+          '- `plan`: full agent run (locate → weather + currency in parallel → plan → map pins and budget).\n' +
+          '- `compare`: two destinations side by side with fit scores.\n' +
+          '- `chat`: change an existing plan ("make day 2 cheaper"). If the message asks about a different destination, ' +
+          'the stream ends with a `newTrip` data event instead of text, so the client can run a full plan for it.\n\n' +
+          'Rate limit: 12 requests per minute per visitor.',
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                oneOf: [ref('PlanRequest'), ref('CompareRequest'), ref('ChatRequest')],
+                discriminator: { propertyName: 'mode' },
+              },
+              examples: {
+                plan: {
+                  summary: 'Plan a trip',
+                  value: {
+                    mode: 'plan',
+                    trip: {
+                      destination: 'Hunza, Pakistan',
+                      origin: 'Karachi',
+                      days: 5,
+                      travelers: 2,
+                      budget: 80000,
+                      currency: 'PKR',
+                      style: 'balanced',
+                      interests: ['Nature', 'History'],
+                      lang: 'en',
+                    },
+                  },
+                },
+                compare: {
+                  summary: 'Compare two places',
+                  value: {
+                    mode: 'compare',
+                    compare: {
+                      a: 'Hunza',
+                      b: 'Skardu',
+                      days: 5,
+                      travelers: 2,
+                      budget: 90000,
+                      currency: 'PKR',
+                    },
+                  },
+                },
+                chat: {
+                  summary: 'Edit a plan',
+                  value: {
+                    mode: 'chat',
+                    chat: {
+                      message: 'Make day 2 cheaper',
+                      destination: 'Hunza, Pakistan',
+                      plan: '## Trip snapshot\nFive slow, scenic days in Hunza…',
+                      history: [],
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: 'A stream of events, one JSON object per line. The last line is always `done` or `error`.',
+            headers: {
+              'x-request-id': {
+                description: 'Matches the server log line for this request.',
+                schema: { type: 'string' },
+              },
+            },
+            content: {
+              'application/x-ndjson': {
+                schema: ref('AgentEvent'),
+                example:
+                  '{"type":"step","id":"locate","label":"Finding Hunza on the map","status":"running"}\n' +
+                  '{"type":"data","key":"place","value":{"name":"Hunza","country":"Pakistan","countryCode":"PK","lat":36.32,"lng":74.65}}\n' +
+                  '{"type":"step","id":"locate","label":"Finding Hunza on the map","status":"done","ms":184,"detail":"Hunza, Pakistan · 36.32°, 74.65°"}\n' +
+                  '{"type":"text","delta":"## Trip snapshot\\nFive slow, scenic days…"}\n' +
+                  '{"type":"data","key":"trip","value":{"currency":"PKR","total":72000,"budget":[{"category":"Stay","amount":28000}],"days":[]}}\n' +
+                  '{"type":"done","requestId":"564b28d1"}\n',
+              },
+            },
+          },
+          400: errorResponse(
+            'The request body is not valid JSON, is missing a required field, or is larger than 32 KB.',
+            'BAD_INPUT',
+            'Tell TripMind where you want to go.',
+          ),
+          403: errorResponse('Sent from another website.', 'FORBIDDEN', 'This API only serves the TripMind website.'),
+          429: {
+            description: 'Too many requests from this visitor.',
+            content: {
+              'application/json': {
+                schema: ref('Error'),
+                example: {
+                  error: {
+                    code: 'RATE_LIMIT',
+                    message: 'Too many requests. Please wait a moment.',
+                    retryAfter: 42,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    '/api/places': {
+      get: {
+        tags: ['Places'],
+        operationId: 'suggestPlaces',
+        summary: 'Suggest places worldwide while typing',
+        description:
+          'Searches every city, region and country (GeoNames data via Open-Meteo), biggest matches first. Always answers 200 so typing is never interrupted. Rate limit: 90 per minute.',
+        parameters: [
+          {
+            name: 'q',
+            in: 'query',
+            required: true,
+            description: 'What the person has typed (2–60 characters; shorter returns an empty list).',
+            schema: { type: 'string', minLength: 2, maxLength: 60 },
+            example: 'Dub',
+          },
+        ],
+        responses: {
+          200: {
+            description: 'Up to 7 places, cached for a day.',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['places'],
+                  properties: {
+                    places: { type: 'array', items: ref('Place') },
+                  },
+                },
+                example: {
+                  places: [
+                    {
+                      name: 'Dubai',
+                      region: '',
+                      country: 'United Arab Emirates',
+                      countryCode: 'AE',
+                      lat: 25.07,
+                      lng: 55.31,
+                    },
+                  ],
+                },
+              },
+            },
+          },
+          429: {
+            description: 'Too many lookups from this visitor.',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    places: { type: 'array', maxItems: 0 },
+                    error: { type: 'string' },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    '/api/contact': {
+      post: {
+        tags: ['Contact'],
+        operationId: 'sendMessage',
+        summary: 'Send a Hire Me message',
+        description:
+          'Validates the message and keeps it in the server logs so it is never lost. With `RESEND_API_KEY` and `CONTACT_TO_EMAIL` set, the server emails it directly; ' +
+          'otherwise it answers `useBrowser: true` and the website delivers it through FormSubmit. A filled `_honey` field (a hidden trap for bots) is accepted and dropped. ' +
+          'Rate limit: 5 messages per 10 minutes.',
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: ref('ContactRequest'),
+              example: {
+                name: 'Ali Khan',
+                email: 'ali@example.com',
+                message: 'I need a booking chatbot for my agency.',
+              },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: 'Delivered, or saved and handed to the browser for delivery.',
+            content: {
+              'application/json': {
+                schema: ref('ContactResult'),
+                examples: {
+                  sent: { value: { ok: true } },
+                  browser: { value: { ok: false, useBrowser: true } },
+                },
+              },
+            },
+          },
+          400: {
+            description:
+              'Not JSON, larger than 12 KB, or a missing name, invalid email or message under 10 characters.',
+            content: {
+              'application/json': {
+                schema: ref('ContactResult'),
+                example: {
+                  ok: false,
+                  error: 'Please fill in your name, a valid email and a short message.',
+                },
+              },
+            },
+          },
+          403: {
+            description: 'Sent from another website.',
+            content: { 'application/json': { schema: ref('ContactResult') } },
+          },
+          429: {
+            description: 'Too many messages from this visitor.',
+            content: { 'application/json': { schema: ref('ContactResult') } },
+          },
+        },
+      },
+    },
+    '/api/health': {
+      get: {
+        tags: ['Status'],
+        operationId: 'health',
+        summary: 'Check the service',
+        description: 'Says whether the AI key is configured, without revealing it.',
+        responses: {
+          200: {
+            description: 'Service status.',
+            content: {
+              'application/json': {
+                schema: ref('Health'),
+                example: {
+                  ok: true,
+                  service: 'TripMind agent',
+                  model: 'gemini-3.8-flash',
+                  aiConfigured: true,
+                  tools: ['open-meteo geocoding', 'open-meteo weather', 'exchange rates'],
+                  time: '2026-11-04T15:00:00.000Z',
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  },
+  components: {
+    schemas: {
+      PlanRequest: {
+        type: 'object',
+        required: ['mode', 'trip'],
+        properties: {
+          mode: { const: 'plan' },
+          trip: {
+            type: 'object',
+            required: ['destination'],
+            properties: {
+              destination: {
+                type: 'string',
+                minLength: 2,
+                maxLength: 80,
+                example: 'Hunza, Pakistan',
+              },
+              origin: { type: 'string', maxLength: 80, example: 'Karachi' },
+              ...tripFields,
+              interests: {
+                type: 'array',
+                maxItems: 8,
+                items: { type: 'string', maxLength: 24 },
+                example: ['Food', 'History'],
+              },
+              notes: {
+                type: 'string',
+                maxLength: 400,
+                example: 'Vegetarian food, no long hikes',
+              },
+            },
+          },
+        },
+      },
+      CompareRequest: {
+        type: 'object',
+        required: ['mode', 'compare'],
+        properties: {
+          mode: { const: 'compare' },
+          compare: {
+            type: 'object',
+            required: ['a', 'b'],
+            properties: {
+              a: { type: 'string', minLength: 2, maxLength: 60 },
+              b: { type: 'string', minLength: 2, maxLength: 60 },
+              ...tripFields,
+            },
+          },
+        },
+      },
+      ChatRequest: {
+        type: 'object',
+        required: ['mode', 'chat'],
+        properties: {
+          mode: { const: 'chat' },
+          chat: {
+            type: 'object',
+            required: ['message', 'plan'],
+            properties: {
+              message: {
+                type: 'string',
+                minLength: 2,
+                maxLength: 600,
+                example: 'Make day 2 cheaper',
+              },
+              plan: {
+                type: 'string',
+                minLength: 20,
+                maxLength: 14000,
+                description: 'The current plan text (Markdown).',
+              },
+              destination: {
+                type: 'string',
+                maxLength: 80,
+                description: 'Current destination, so the agent can tell when a different place is asked about.',
+              },
+              history: {
+                type: 'array',
+                maxItems: 4,
+                items: {
+                  type: 'object',
+                  properties: {
+                    role: { enum: ['user', 'assistant'] },
+                    content: { type: 'string', maxLength: 2000 },
+                  },
+                },
+              },
+              lang: tripFields.lang,
+            },
+          },
+        },
+      },
+      AgentEvent: {
+        description: 'One line of the `/api/plan` stream.',
+        oneOf: [ref('StepEvent'), ref('DataEvent'), ref('TextEvent'), ref('DoneEvent'), ref('StreamError')],
+        discriminator: { propertyName: 'type' },
+      },
+      StepEvent: {
+        type: 'object',
+        required: ['type', 'id', 'label', 'status'],
+        description:
+          'A step started or finished. Each step is sent as `running`, then `done`, `skipped` (a tool failed; the plan continues) or `error`.',
+        properties: {
+          type: { const: 'step' },
+          id: {
+            type: 'string',
+            enum: [
+              'read',
+              'locate',
+              'weather',
+              'currency',
+              'write',
+              'map',
+              'budget',
+              'locateA',
+              'locateB',
+              'weatherA',
+              'weatherB',
+              'context',
+              'switch',
+            ],
+          },
+          label: {
+            type: 'string',
+            example: 'Checking the weather for your dates',
+          },
+          status: {
+            type: 'string',
+            enum: ['running', 'done', 'skipped', 'error'],
+          },
+          ms: { type: 'integer', description: 'How long the step took.' },
+          detail: { type: 'string', example: 'Live forecast' },
+        },
+      },
+      DataEvent: {
+        type: 'object',
+        required: ['type', 'key', 'value'],
+        description:
+          'Structured results, sent as soon as they are known: `place` (Place), `weather` (Weather), `fx` (FxRate), `places` and `compareWeather` (compare mode), ' +
+          '`trip` (TripData, after the plan text) and `newTrip` (chat mode, when a different destination was asked about).',
+        properties: {
+          type: { const: 'data' },
+          key: {
+            type: 'string',
+            enum: ['place', 'weather', 'fx', 'places', 'compareWeather', 'trip', 'newTrip'],
+          },
+          value: {
+            anyOf: [
+              ref('Place'),
+              ref('Weather'),
+              ref('FxRate'),
+              ref('TripData'),
+              { type: 'array' },
+              {
+                type: 'object',
+                description: '`newTrip`: the trip fields to plan next.',
+              },
+            ],
+          },
+        },
+      },
+      TextEvent: {
+        type: 'object',
+        required: ['type', 'delta'],
+        description: 'The next piece of the plan, in Markdown. Join the deltas in order.',
+        properties: { type: { const: 'text' }, delta: { type: 'string' } },
+      },
+      DoneEvent: {
+        type: 'object',
+        required: ['type'],
+        properties: { type: { const: 'done' }, requestId: { type: 'string' } },
+      },
+      StreamError: {
+        type: 'object',
+        required: ['type', 'code', 'message'],
+        description: 'The stream stopped. The message is safe to show to the visitor.',
+        properties: {
+          type: { const: 'error' },
+          code: { type: 'string', enum: STREAM_ERROR_CODES },
+          message: { type: 'string' },
+          retryAfter: {
+            type: 'integer',
+            description: 'Seconds to wait before retrying (quota and temporary errors).',
+          },
+          requestId: { type: 'string' },
+        },
+      },
+      Place: {
+        type: 'object',
+        required: ['name', 'country', 'lat', 'lng'],
+        properties: {
+          name: { type: 'string' },
+          region: { type: 'string' },
+          country: { type: 'string' },
+          countryCode: { type: 'string' },
+          lat: { type: 'number' },
+          lng: { type: 'number' },
+        },
+      },
+      Weather: {
+        type: 'object',
+        properties: {
+          source: {
+            type: 'string',
+            enum: ['forecast', 'typical'],
+            description: '`forecast` within 15 days; otherwise `typical`, observed on the same dates last year.',
+          },
+          days: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                date: { type: 'string', format: 'date' },
+                label: { type: 'string' },
+                icon: { type: 'string' },
+                max: { type: 'number' },
+                min: { type: 'number' },
+                rainChance: { type: ['number', 'null'] },
+                rainMm: { type: ['number', 'null'] },
+              },
+            },
+          },
+        },
+      },
+      FxRate: {
+        type: 'object',
+        properties: {
+          from: { type: 'string' },
+          to: { type: 'string' },
+          rate: { type: 'number' },
+          amount: { type: 'number' },
+          converted: { type: 'number' },
+        },
+      },
+      TripData: {
+        type: 'object',
+        properties: {
+          currency: { type: 'string' },
+          total: { type: 'number' },
+          budget: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                category: { type: 'string' },
+                amount: { type: 'number' },
+              },
+            },
+          },
+          days: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                day: { type: 'integer' },
+                title: { type: 'string' },
+                places: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      name: { type: 'string' },
+                      lat: { type: 'number' },
+                      lng: { type: 'number' },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          compare: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                name: { type: 'string' },
+                score: { type: 'number', minimum: 0, maximum: 10 },
+                estimate: { type: 'number' },
+              },
+            },
+          },
+        },
+      },
+      ContactRequest: {
+        type: 'object',
+        required: ['name', 'email', 'message'],
+        properties: {
+          name: { type: 'string', minLength: 2, maxLength: 80 },
+          email: { type: 'string', format: 'email', maxLength: 120 },
+          message: { type: 'string', minLength: 10, maxLength: 3000 },
+          _honey: { type: 'string', description: 'Leave empty (bot trap).' },
+          report: {
+            type: 'string',
+            maxLength: 300,
+            description:
+              'Used by the website only: the reason FormSubmit refused a message, so it is kept in the logs.',
+          },
+        },
+      },
+      ContactResult: {
+        type: 'object',
+        properties: {
+          ok: { type: 'boolean' },
+          useBrowser: { type: 'boolean' },
+          error: { type: 'string' },
+        },
+      },
+      Health: {
+        type: 'object',
+        properties: {
+          ok: { type: 'boolean' },
+          service: { type: 'string' },
+          model: { type: 'string' },
+          aiConfigured: { type: 'boolean' },
+          tools: { type: 'array', items: { type: 'string' } },
+          time: { type: 'string', format: 'date-time' },
+        },
+      },
+      Error: {
+        type: 'object',
+        required: ['error'],
+        properties: {
+          error: {
+            type: 'object',
+            required: ['code', 'message'],
+            properties: {
+              code: {
+                type: 'string',
+                enum: ['BAD_INPUT', 'FORBIDDEN', 'RATE_LIMIT', 'METHOD'],
+                description: '`METHOD` is returned with status 405 for an unsupported HTTP method.',
+              },
+              message: { type: 'string' },
+              retryAfter: { type: 'integer' },
+            },
+          },
+        },
+      },
+    },
+  },
+};
+
+writeFileSync(new URL('../public/openapi.json', import.meta.url), JSON.stringify(spec, null, 2) + '\n');
+console.log('Wrote public/openapi.json');

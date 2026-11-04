@@ -4,7 +4,7 @@
 
 TripMind plans a trip the way a good travel agent would: it looks things up first, then writes the plan. Tell it where, when, how many people and your budget; it finds the place, checks the weather for your exact dates, converts your budget to the local currency, and streams a day-by-day plan with a route map, a budget chart and a travel kit. You can watch every step as it happens.
 
-**Live demo: [tripmind-travel-agent.vercel.app](https://tripmind-travel-agent.vercel.app)**
+**Live demo: [tripmind-travel-agent.vercel.app](https://tripmind-travel-agent.vercel.app)** · **API docs: [/docs](https://tripmind-travel-agent.vercel.app/docs)** · **[OpenAPI spec](https://tripmind-travel-agent.vercel.app/openapi.json)**
 
 Built by **Nimra Imran**, AI Engineer.
 
@@ -13,7 +13,7 @@ Built by **Nimra Imran**, AI Engineer.
 - **Agent with tools**: geocoding, live or typical weather and exchange rates run in parallel before a single model call
 - **Streaming with a live steps panel**: "Checking the weather… ✓" with timings, then the plan types out word by word
 - **Clean output**: real Markdown rendered as headings, lists and tables, in a fixed section order, with no stray symbols
-- **Route map** with numbered stops per day (Leaflet + CARTO), **weather strip**, **budget donut** with an over/under-budget check
+- **Route map** with numbered stops per day (Leaflet + Esri, English labels), **weather strip**, **budget donut** with an over/under-budget check
 - **Follow-up edits**: "Make day 2 cheaper" updates only the parts that change, plus the map and budget; asking about another place ("what about Maldives?") runs the full agent for it
 - **Worldwide place search** while typing: popular places on the first letter, then every city and region via `/api/places`
 - **Compare two places** with fit scores, costs and weather side by side
@@ -22,6 +22,17 @@ Built by **Nimra Imran**, AI Engineer.
 - **Contact form** sent through the site's own `/api/contact` and delivered by email through FormSubmit (Resend optional), every message also saved in the logs, with validation, spam protection, rate limiting, and no message ever lost
 - **Hero slider** of 10 destinations, a WebGL globe, fully responsive down to small phones
 - **Share card** (Open Graph) so links show a full preview on WhatsApp, LinkedIn and X
+
+## API
+
+| Endpoint | Method | What it does |
+| --- | --- | --- |
+| `/api/plan` | POST | Plan a trip, compare two places or edit a plan, streamed as NDJSON events |
+| `/api/places` | GET | Worldwide place suggestions while typing |
+| `/api/contact` | POST | The Hire Me form |
+| `/api/health` | GET | Status, including whether the AI key is set |
+
+Full reference with request fields, stream events, error codes and examples: **[docs/API.md](docs/API.md)**, or the interactive version at [`/docs`](https://tripmind-travel-agent.vercel.app/docs). After changing an endpoint, update `scripts/build-openapi.mjs` and run `npm run docs:api`; the tests fail if the spec and the code disagree.
 
 ## Architecture
 
@@ -50,7 +61,8 @@ The model writes Markdown followed by a hidden JSON block (map pins and budget).
 |---|---|
 | Frontend | React 18, Vite, Leaflet, cobe (WebGL globe), react-markdown |
 | Backend | Vercel serverless functions (Node, Web `Request`/`Response`), JSDoc types checked by TypeScript |
-| Quality | Vitest (74 tests), GitHub Actions CI |
+| Quality | Vitest (80 tests), GitHub Actions CI |
+| API docs | OpenAPI 3.1 spec, interactive reference at `/docs`, guide in [docs/API.md](docs/API.md) |
 | AI | Google Gemini Flash (3.x) via streaming REST, automatic model fallback that follows Google's model replacements |
 | Data | Open-Meteo geocoding, forecast and archive APIs; open.er-api.com exchange rates; Esri map tiles with English labels and automatic fallback |
 
@@ -81,7 +93,9 @@ src/
   data/              destinations for the hero slider
   config/site.js     your name and contact links
 tests/               Vitest suite for every backend module
-scripts/             offline API demo and share-image generator
+scripts/             OpenAPI builder, offline API demo, share-image generator
+docs/API.md          full API reference (endpoints, stream events, errors)
+public/openapi.json  OpenAPI 3.1 spec, served with the interactive docs at /docs
 .github/workflows/   CI: type check, tests and build on every push
 ```
 
@@ -91,7 +105,7 @@ The backend is plain JavaScript with JSDoc types, checked by the TypeScript comp
 
 ```bash
 npm run typecheck   # TypeScript over api/
-npm test            # 74 tests
+npm test            # 80 tests
 npm run check       # all of the above plus a production build (what CI runs)
 ```
 
@@ -100,6 +114,7 @@ What the tests cover:
 - **Validation**: defaults, clamping, unknown values, control characters, size limits
 - **Tools**: picking the right place from namesakes, forecast vs typical weather, date edge cases, currency conversion, caching
 - **Gemini client**: SSE parsing, hidden "thinking" parts, key sent in a header, model fallback on 404 and 429, retry delay, bad or missing key, server errors, safety blocks
+- **API docs**: the OpenAPI spec lists every real endpoint, method, step, data key, error code, validation rule and rate limit, and nothing extra
 - **Agent endpoint**: event order, tool failures that don't stop the plan, the hidden data block never leaking however the stream is split, compare and follow-up modes, cross-site refusal, bad JSON, oversized bodies, rate limiting
 
 ## Run locally

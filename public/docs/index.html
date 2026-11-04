@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>TripMind API Reference</title>
+    <meta name="description" content="Reference for the TripMind agent API: trip planning over a live event stream, place suggestions, contact and health." />
+    <meta name="theme-color" content="#0f2e3a" />
+    <meta name="author" content="Nimra Imran" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=Instrument+Sans:wght@400..700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+    <style>
+      :root { --lagoon: #0f2e3a; --lagoon-2: #163d4b; --saffron: #f4b13f; --on-dark: #eef5f4; --on-dark-soft: #a9c0c2; --paper: #f8fbfa; }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: var(--paper); font-family: 'Instrument Sans', system-ui, sans-serif; }
+      .bar { position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 12px; padding: 12px clamp(16px, 4vw, 32px); background: var(--lagoon); color: var(--on-dark); box-shadow: 0 8px 24px -16px rgba(0,0,0,.6); }
+      .brand { display: flex; align-items: center; gap: 10px; color: inherit; text-decoration: none; font: 700 1.25rem/1 'Bricolage Grotesque', system-ui, sans-serif; letter-spacing: -.02em; }
+      .brand img { width: 30px; height: 30px; }
+      .tag { padding: 3px 10px; border-radius: 999px; background: rgba(244,177,63,.16); color: var(--saffron); font-size: .8rem; font-weight: 600; }
+      .links { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+      .links a { color: var(--on-dark); text-decoration: none; font-size: .9rem; font-weight: 600; padding: 7px 12px; border-radius: 999px; border: 1px solid rgba(238,245,244,.22); white-space: nowrap; }
+      .links a:hover, .links a:focus-visible { border-color: var(--saffron); color: var(--saffron); }
+      .links a.primary { background: var(--saffron); color: var(--lagoon); border-color: var(--saffron); }
+      .links a.primary:hover { color: var(--lagoon); filter: brightness(1.05); }
+      #loading { padding: 64px 16px; text-align: center; color: #4b5f68; }
+      @media (max-width: 640px) { .tag, .links a.hide-sm { display: none; } .links a { padding: 6px 10px; font-size: .85rem; } }
+    </style>
+  </head>
+  <body>
+    <header class="bar">
+      <a class="brand" href="/"><img src="/favicon.svg" alt="" />TripMind</a>
+      <span class="tag">API reference</span>
+      <nav class="links" aria-label="Docs links">
+        <a class="hide-sm" href="/openapi.json" download>OpenAPI spec</a>
+        <a class="hide-sm" href="https://github.com/NimrahImran/tripmind-ai-travel-agent" rel="noopener">GitHub</a>
+        <a class="primary" href="/#agent">Try the agent</a>
+      </nav>
+    </header>
+    <div id="docs"><p id="loading">Loading the API reference…</p></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/redoc@2.1.5/bundles/redoc.standalone.js"></script>
+    <script>
+      Redoc.init(
+        '/openapi.json',
+        {
+          hideDownloadButton: false,
+          expandResponses: '200',
+          jsonSampleExpandLevel: 3,
+          pathInMiddlePanel: true,
+          scrollYOffset: '.bar',
+          sortPropsAlphabetically: false,
+          theme: {
+            spacing: { unit: 5, sectionHorizontal: 32, sectionVertical: 28 },
+            breakpoints: { small: '50rem', medium: '75rem', large: '105rem' },
+            colors: {
+              primary: { main: '#1f4c5c' },
+              success: { main: '#2e8b83' },
+              warning: { main: '#c98410' },
+              error: { main: '#c4503d' },
+              text: { primary: '#12232c', secondary: '#4b5f68' },
+              border: { dark: '#d3dedc', light: '#e9efee' },
+              http: { get: '#2e8b83', post: '#c98410', delete: '#c4503d', put: '#1f4c5c' },
+            },
+            typography: {
+              fontSize: '15px',
+              lineHeight: '1.6',
+              fontFamily: "'Instrument Sans', system-ui, sans-serif",
+              headings: { fontFamily: "'Bricolage Grotesque', system-ui, sans-serif", fontWeight: '700' },
+              code: { fontFamily: "'JetBrains Mono', ui-monospace, monospace", fontSize: '13px', color: '#9a5f00', backgroundColor: 'rgba(244,177,63,.12)' },
+              links: { color: '#1f4c5c', visited: '#1f4c5c', hover: '#c98410' },
+            },
+            sidebar: { backgroundColor: '#e9efee', textColor: '#12232c', activeTextColor: '#0f2e3a', groupItems: { textTransform: 'uppercase' } },
+            rightPanel: { backgroundColor: '#0f2e3a', textColor: '#eef5f4', width: '42%' },
+            codeBlock: { backgroundColor: '#0b2430' },
+          },
+        },
+        document.getElementById('docs'),
+        function (err) {
+          if (err) document.getElementById('docs').innerHTML = '<p id="loading">The reference could not load. <a href="/openapi.json">Open the OpenAPI spec</a> instead.</p>';
+        },
+      );
+    </script>
+  </body>
+</html>
