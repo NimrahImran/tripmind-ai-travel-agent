@@ -80,7 +80,7 @@ function ContactForm() {
 
     setState('sending');
     try {
-      // 1) The site's own backend (Resend email), never blocked by ad blockers.
+      // 1) The site's own backend (Gmail or Resend), never blocked by ad blockers.
       const res = await fetch('/api/contact', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -105,7 +105,9 @@ function ContactForm() {
             body: JSON.stringify({ report: String(fsBody.message || `HTTP ${fs?.status}`), name, email, message }),
             keepalive: true,
           }).catch(() => {});
-          // The message is already saved on the server, so the visitor is done.
+          setFailReason('The message couldn’t be delivered right now. Please try again in a minute.');
+          setState('error');
+          return;
         }
       } else if (!res.ok || !body.ok) {
         setFailReason(body.error || '');

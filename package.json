@@ -2,7 +2,7 @@
   "name": "tripmind",
   "version": "1.0.0",
   "private": true,
-  "description": "TripMind \u2014 an AI travel advisor agent that plans trips with live weather, currency and maps, streamed step by step.",
+  "description": "TripMind — an AI travel advisor agent that plans trips with live weather, currency and maps, streamed step by step.",
   "author": "Nimra Imran",
   "type": "module",
   "engines": {
@@ -24,6 +24,7 @@
     "@fontsource-variable/instrument-sans": "^5.2.0",
     "cobe": "^0.6.3",
     "leaflet": "^1.9.4",
+    "nodemailer": "^6.9.16",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-markdown": "^9.0.1",
@@ -31,6 +32,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.20.5",
+    "@types/nodemailer": "^6.4.17",
     "@vitejs/plugin-react": "^4.5.2",
     "typescript": "^5.9.3",
     "vite": "^6.3.5",

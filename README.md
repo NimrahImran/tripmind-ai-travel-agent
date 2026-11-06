@@ -61,7 +61,7 @@ The model writes Markdown followed by a hidden JSON block (map pins and budget).
 |---|---|
 | Frontend | React 18, Vite, Leaflet, cobe (WebGL globe), react-markdown |
 | Backend | Vercel serverless functions (Node, Web `Request`/`Response`), JSDoc types checked by TypeScript |
-| Quality | Vitest (80 tests), GitHub Actions CI |
+| Quality | Vitest (83 tests), GitHub Actions CI |
 | API docs | OpenAPI 3.1 spec, interactive reference at `/docs`, guide in [docs/API.md](docs/API.md) |
 | AI | Google Gemini Flash (3.x) via streaming REST, automatic model fallback that follows Google's model replacements |
 | Data | Open-Meteo geocoding, forecast and archive APIs; open.er-api.com exchange rates; Esri map tiles with English labels and automatic fallback |
@@ -105,7 +105,7 @@ The backend is plain JavaScript with JSDoc types, checked by the TypeScript comp
 
 ```bash
 npm run typecheck   # TypeScript over api/
-npm test            # 80 tests
+npm test            # 83 tests
 npm run check       # all of the above plus a production build (what CI runs)
 ```
 
@@ -135,7 +135,7 @@ See the agent's event stream in the terminal, no key needed: `npm run demo:api`.
 2. Get a free key at [Google AI Studio](https://aistudio.google.com/apikey).
 3. In Vercel, open **Settings → Environment Variables**, add `GEMINI_API_KEY` with your key, and save.
 4. Redeploy. Visit `/api/health` to confirm `"aiConfigured": true`.
-5. Contact form: works with no extra setup through FormSubmit. Send yourself one test message, then click **Activate** in the email FormSubmit sends (once per website). Every message is also kept in Vercel → Logs (search `contact_received`). Optional: add `RESEND_API_KEY` and `CONTACT_TO_EMAIL` to send through [Resend](https://resend.com) instead.
+5. Contact form: add `GMAIL_USER` (your Gmail address) and `GMAIL_APP_PASSWORD` (a Google [app password](https://myaccount.google.com/apppasswords), needs 2-Step Verification on). Messages then arrive in your Gmail, with Reply going straight to the visitor. Without them the form falls back to Resend (`RESEND_API_KEY` + `CONTACT_TO_EMAIL`) or FormSubmit in the browser. Every message is also written to Vercel → Logs (`contact_received`).
 
 ## Credits
 

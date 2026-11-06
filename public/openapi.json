@@ -279,7 +279,7 @@
         ],
         "operationId": "sendMessage",
         "summary": "Send a Hire Me message",
-        "description": "Validates the message and keeps it in the server logs so it is never lost. With `RESEND_API_KEY` and `CONTACT_TO_EMAIL` set, the server emails it directly; otherwise it answers `useBrowser: true` and the website delivers it through FormSubmit. A filled `_honey` field (a hidden trap for bots) is accepted and dropped. Rate limit: 5 messages per 10 minutes.",
+        "description": "Validates the message and keeps it in the server logs. With `GMAIL_USER` and `GMAIL_APP_PASSWORD` set the server sends it from that Gmail; with `RESEND_API_KEY` and `CONTACT_TO_EMAIL`, through Resend; otherwise it answers `useBrowser: true` and the website delivers it through FormSubmit. A filled `_honey` field (a hidden trap for bots) is accepted and dropped. Rate limit: 5 messages per 10 minutes.",
         "requestBody": {
           "required": true,
           "content": {

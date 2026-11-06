@@ -229,7 +229,8 @@ Receives a Hire Me message.
 
 Every message is written to the server logs, so none is lost. Delivery then depends on the settings:
 
-- With `RESEND_API_KEY` and `CONTACT_TO_EMAIL` set, the server emails it and answers `{ "ok": true }`.
+- With `GMAIL_USER` and `GMAIL_APP_PASSWORD` set, the server sends it from that Gmail (to `CONTACT_TO_EMAIL`, or to the Gmail itself) and answers `{ "ok": true }`.
+- Otherwise, with `RESEND_API_KEY` and `CONTACT_TO_EMAIL` set, it sends through Resend.
 - Without them, it answers `{ "ok": false, "useBrowser": true }` and the website delivers the message through FormSubmit.
 
 | Status | Body                                                                               |
@@ -299,4 +300,5 @@ Once the stream has started, the status is already `200`, so problems arrive as 
 | `GEMINI_API_KEY`                                           | Yes      | Free key from Google AI Studio                               |
 | `GEMINI_MODEL`                                             | No       | Comma-separated model list, tried in order                   |
 | `ALLOWED_ORIGINS`                                          | No       | Extra domains allowed to call the API from a browser         |
-| `RESEND_API_KEY`, `CONTACT_TO_EMAIL`, `CONTACT_FROM_EMAIL` | No       | Send contact messages from the server instead of the browser |
+| `GMAIL_USER`, `GMAIL_APP_PASSWORD` | No       | Send contact messages from your own Gmail (recommended) |
+| `RESEND_API_KEY`, `CONTACT_TO_EMAIL`, `CONTACT_FROM_EMAIL` | No       | Send contact messages through Resend instead |

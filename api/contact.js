@@ -1,12 +1,14 @@
 // @ts-check
 // POST /api/contact — delivers the Hire Me form to the owner's inbox.
 //
-// Default: every message is saved in the Vercel logs, then the browser
-// delivers it to the inbox through FormSubmit (free, no account; the owner
-// clicks "Activate" once in the first email FormSubmit sends).
-// Optional: with RESEND_API_KEY and CONTACT_TO_EMAIL set, the server emails it
-// with Resend instead.
+// Every message is saved in the Vercel logs, then delivered by the first way
+// that is set up:
+//   1. Gmail: GMAIL_USER + GMAIL_APP_PASSWORD (the owner's own Gmail sends it
+//      to itself, or to CONTACT_TO_EMAIL). Free, no new account.
+//   2. Resend: RESEND_API_KEY + CONTACT_TO_EMAIL.
+//   3. Otherwise the browser delivers it through FormSubmit.
 
+import nodemailer from 'nodemailer';
 import { allowRequest, clientIp, isSameOrigin, json, log, newRequestId } from './_lib/http.js';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
@@ -62,13 +64,43 @@ export async function POST(request) {
     return json({ ok: false, error: 'Please fill in your name, a valid email and a short message.' }, 400, requestId);
   }
 
+  log('info', { requestId, event: 'contact_received', name, email, message });
+  const subject = `New TripMind enquiry from ${name}`;
+  const text = `Name: ${name}\nEmail: ${email}\n\n${message}`;
+  const html = `<p><strong>Name:</strong> ${escapeHtml(name)}<br><strong>Email:</strong> ${escapeHtml(email)}</p><p>${escapeHtml(message).replace(/\n/g, '<br>')}</p><p style="color:#888">Sent from the TripMind contact form. Reply to this email to answer ${escapeHtml(name)}.</p>`;
+
+  const gmailUser = process.env.GMAIL_USER?.trim();
+  const gmailPass = process.env.GMAIL_APP_PASSWORD?.replace(/\s+/g, '');
+  if (gmailUser && gmailPass) {
+    try {
+      const mailer = nodemailer.createTransport({
+        host: 'smtp.gmail.com',
+        port: 465,
+        secure: true,
+        auth: { user: gmailUser, pass: gmailPass },
+        connectionTimeout: 10_000,
+        socketTimeout: 15_000,
+      });
+      await mailer.sendMail({
+        from: `TripMind website <${gmailUser}>`,
+        to: process.env.CONTACT_TO_EMAIL?.trim() || gmailUser,
+        replyTo: `${name} <${email}>`,
+        subject,
+        text,
+        html,
+      });
+      log('info', { requestId, event: 'contact', delivered: true, via: 'gmail' });
+      return json({ ok: true }, 200, requestId);
+    } catch (err) {
+      // Wrong app password, or Gmail refused: say why, then try the next way.
+      log('warn', { requestId, event: 'contact', delivered: false, via: 'gmail', note: String(/** @type {any} */ (err)?.message || err).slice(0, 300) });
+    }
+  }
+
   const key = process.env.RESEND_API_KEY;
   const to = process.env.CONTACT_TO_EMAIL;
   if (!key || !to) {
-    // Every message is also kept in the Vercel logs (Logs → search
-    // "contact_received"), so none is ever lost. The browser then delivers
-    // it to the inbox through FormSubmit.
-    log('info', { requestId, event: 'contact_received', name, email, message });
+    // The browser then delivers it to the inbox through FormSubmit.
     return json({ ok: false, useBrowser: true }, 200, requestId);
   }
 
@@ -80,9 +112,9 @@ export async function POST(request) {
         from: process.env.CONTACT_FROM_EMAIL || 'TripMind <onboarding@resend.dev>',
         to: to.split(',').map((s) => s.trim()).filter(Boolean),
         reply_to: email,
-        subject: `New TripMind enquiry from ${name}`,
-        text: `Name: ${name}\nEmail: ${email}\n\n${message}`,
-        html: `<p><strong>Name:</strong> ${escapeHtml(name)}<br><strong>Email:</strong> ${escapeHtml(email)}</p><p>${escapeHtml(message).replace(/\n/g, '<br>')}</p><p style="color:#888">Sent from the TripMind contact form. Reply to this email to answer ${escapeHtml(name)}.</p>`,
+        subject,
+        text,
+        html,
       }),
       signal: AbortSignal.timeout(15_000),
     });
@@ -92,9 +124,9 @@ export async function POST(request) {
     }
     const detail = await res.text().catch(() => '');
     // Keep the message so it is never lost, and the reason so it can be fixed.
-    log('warn', { requestId, event: 'contact', delivered: false, via: 'resend', status: res.status, note: detail.slice(0, 300), name, email, message });
+    log('warn', { requestId, event: 'contact', delivered: false, via: 'resend', status: res.status, note: detail.slice(0, 300) });
   } catch (err) {
-    log('warn', { requestId, event: 'contact', delivered: false, via: 'resend', note: String(/** @type {any} */ (err)?.message || err), name, email, message });
+    log('warn', { requestId, event: 'contact', delivered: false, via: 'resend', note: String(/** @type {any} */ (err)?.message || err) });
   }
   return json({ ok: false, useBrowser: true }, 200, requestId);
 }
