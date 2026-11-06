@@ -67,6 +67,17 @@
       ],
       "destination": "https://tripmind-travel-agent.vercel.app/:path*",
       "permanent": true
+    },
+    {
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "tripmind-ai-git-main-nimra22.vercel.app"
+        }
+      ],
+      "destination": "https://tripmind-travel-agent.vercel.app/:path*",
+      "permanent": true
     }
   ],
   "rewrites": [

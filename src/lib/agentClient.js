@@ -11,7 +11,7 @@ export async function streamAgent(body, onEvent, signal) {
     });
   } catch (err) {
     if (err.name === 'AbortError') return;
-    onEvent({ type: 'error', code: 'OFFLINE', message: 'Could not reach TripMind. Check your internet connection and try again.' });
+    onEvent({ type: 'error', code: 'OFFLINE', message: 'Could not reach TripMind. Refresh the page, check your connection and try again.' });
     return;
   }
 

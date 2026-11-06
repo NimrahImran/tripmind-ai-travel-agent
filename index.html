@@ -41,6 +41,14 @@
     <link rel="preload" as="image" href="https://images.unsplash.com/photo-1760867333704-872f5ff51cdd?auto=format&fit=crop&w=1920&q=72" media="(min-width: 1441px)" />
     <link rel="preload" as="image" href="https://images.unsplash.com/photo-1760867333704-872f5ff51cdd?auto=format&fit=crop&w=1400&q=72" media="(min-width: 761px) and (max-width: 1440px)" />
     <link rel="preload" as="image" href="https://images.unsplash.com/photo-1760867333704-872f5ff51cdd?auto=format&fit=crop&w=1000&q=72" media="(max-width: 760px)" />
+    <script>
+      // Old addresses of this site: open the main address instead, so the planner always reaches its server.
+      (function () {
+        var main = 'tripmind-travel-agent.vercel.app';
+        var old = ['tripmind-ai-three.vercel.app', 'tripmind-ai-nimra22.vercel.app', 'tripmind-ai-git-main-nimra22.vercel.app'];
+        if (old.indexOf(location.hostname) !== -1) location.replace('https://' + main + location.pathname + location.search + location.hash);
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
